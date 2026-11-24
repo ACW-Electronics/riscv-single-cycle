@@ -1,0 +1,19 @@
+# Icarus Verilog & waveform dumps
+*.vcd
+*_sim
+a.out
+
+# Vivado generated files (for Windows sync)
+*.jou
+*.log
+*.str
+*.xpr
+*.runs/
+*.cache/
+*.hw/
+*.ip_user_files/
+*.sim/
+.Xil/
+
+# macOS & editor files
+.DS_Store

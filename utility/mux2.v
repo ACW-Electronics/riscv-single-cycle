@@ -1,0 +1,12 @@
+`timescale 1ns/1ps
+
+module mux2 
+    #(parameter WIDTH = 32)(
+    input sel,
+    input [WIDTH-1: 0] d0, d1,
+    output [WIDTH-1: 0] y
+);
+
+assign y = sel ? d1 : d0;
+
+endmodule
