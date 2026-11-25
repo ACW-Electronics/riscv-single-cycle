@@ -1,0 +1,468 @@
+<title>RV32I Controller Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: same visual system as datapath_map.html. One wide schematic with an instruction picker, then the two truth tables, then how to structure the code. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #667085; --line: #c9d0dc;
+  --wire: #3a4456; --ctrl: #2563c9; --hot: #d96b12; --hot-soft: #fbe9da; --ext: #eef1f6; --code: #f1f3f7;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; --code: #151a22; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; --code: #151a22; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 32px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; font-weight: 600; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+.muted { color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 8px; }
+
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.picker .lbl { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.picker button, .zero button { font: 500 14px var(--mono); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+.picker button:hover, .zero button:hover { border-color: var(--hot); }
+.picker button[aria-pressed="true"] { background: var(--hot); border-color: var(--hot); color: #fff; }
+.picker button:focus-visible, .zero button:focus-visible { outline: 2px solid var(--ctrl); outline-offset: 2px; }
+.picker .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.explain { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.explain .what { font-family: var(--mono); font-size: 14px; color: var(--hot); }
+.explain p { margin-top: 4px; }
+.zero { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.zero button[aria-pressed="true"] { border-color: var(--ctrl); color: var(--ctrl); }
+.scroll { overflow-x: auto; }
+figure { margin: 0; }
+svg.dp { display: block; width: 100%; min-width: 860px; height: auto; color: var(--wire); }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; max-width: 90ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+
+/* SVG parts */
+.w { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .5; transition: stroke .15s, opacity .15s; }
+.w.in { opacity: .8; }
+.w.on { stroke: var(--hot); opacity: 1; stroke-width: 2.6; }
+.w.dc { stroke-dasharray: 2 5; opacity: .35; }
+.bus { stroke-width: 4; }
+.bus.on { stroke-width: 5; }
+.blk { fill: var(--panel); stroke: currentColor; stroke-width: 1.6; }
+.gate { fill: var(--panel); stroke: currentColor; stroke-width: 1.6; }
+.dot { fill: currentColor; }
+.pin { fill: var(--panel); stroke: var(--fg); stroke-width: 1.4; }
+.t  { fill: var(--fg); font: 600 14px var(--sans); }
+.tn { fill: var(--fg); font: 500 12px var(--mono); }
+.ts { fill: var(--muted); font: 400 10.5px var(--mono); }
+.tp { fill: var(--muted); font: 400 10.5px var(--mono); }
+.ti { fill: var(--ctrl); font: 500 11px var(--mono); }
+.val { fill: var(--hot); font: 600 12px var(--mono); }
+.val.x { fill: var(--muted); font-weight: 400; }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 28px; }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.n { font-family: var(--sans); font-size: 13px; color: var(--muted); white-space: normal; }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; white-space: nowrap; }
+th.int { color: var(--ctrl); }
+tbody tr.hl td { background: var(--hot-soft); }
+
+pre { margin: 0; background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto;
+  font: 400 13px/1.5 var(--mono); color: var(--fg); }
+pre .c { color: var(--muted); }
+pre .k { color: var(--ctrl); }
+.files { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.files > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.files .fn { font: 600 13px var(--mono); }
+ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; max-width: 80ch; }
+@media (max-width: 640px) { .explain { grid-template-columns: 1fr; } h1 { font-size: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) { .w { transition: none; } }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>RV32I Controller Map</h1>
+  <p>The controller reads three fields of the instruction and the ALU's <code>zero</code> flag, and produces every control signal the datapath needs. It has no clock and no state: each output depends only on the current inputs. Pick an instruction to see what each signal should be.</p>
+</header>
+
+<div class="stage">
+  <div class="picker" role="group" aria-label="Instruction">
+    <span class="lbl">Instruction</span>
+    <button type="button" data-ins="add">add</button>
+    <button type="button" data-ins="sub">sub</button>
+    <button type="button" data-ins="and">and</button>
+    <button type="button" data-ins="or">or</button>
+    <button type="button" data-ins="slt">slt</button>
+    <span class="sep" aria-hidden="true"></span>
+    <button type="button" data-ins="addi">addi</button>
+    <button type="button" data-ins="lw">lw</button>
+    <button type="button" data-ins="sw">sw</button>
+    <button type="button" data-ins="beq">beq</button>
+    <button type="button" data-ins="jal">jal</button>
+  </div>
+
+  <div class="explain">
+    <div>
+      <div class="what" id="asm">add x3, x1, x2</div>
+      <p id="note"></p>
+    </div>
+    <div class="zero">
+      <span>ALU result</span>
+      <button type="button" id="zerobtn" aria-pressed="false">zero = 0</button>
+    </div>
+  </div>
+
+  <div class="scroll">
+  <figure>
+    <svg class="dp" viewBox="0 0 1080 500" role="img" aria-label="Controller block diagram. op enters the main decoder, which drives regwrite, immsrc, alusrc, memwrite and resultsrc directly, plus three internal wires: aluop to the ALU decoder, and branch and jump to the PC-select logic. The ALU decoder combines aluop, funct3, op bit 5 and funct7b5 into aluctrl. pcsrc equals branch AND zero, OR jump.">
+
+      <!-- ===== blocks ===== -->
+      <rect class="blk" x="230" y="45" width="220" height="105" rx="6"/>
+      <text class="t" x="340" y="92" text-anchor="middle">aludec</text>
+      <text class="ts" x="340" y="110" text-anchor="middle">ALU decoder</text>
+
+      <rect class="blk" x="230" y="190" width="200" height="240" rx="6"/>
+      <text class="t" x="300" y="300" text-anchor="middle">maindec</text>
+      <text class="ts" x="300" y="318" text-anchor="middle">main decoder</text>
+      <text class="ts" x="300" y="334" text-anchor="middle">case (op)</text>
+
+      <!-- port names inside maindec -->
+      <text class="tp" x="422" y="219" text-anchor="end">regwrite</text>
+      <text class="tp" x="422" y="244" text-anchor="end">immsrc</text>
+      <text class="tp" x="422" y="269" text-anchor="end">alusrc</text>
+      <text class="tp" x="422" y="294" text-anchor="end">memwrite</text>
+      <text class="tp" x="422" y="319" text-anchor="end">resultsrc</text>
+      <text class="tp" x="422" y="359" text-anchor="end">jump</text>
+      <text class="tp" x="422" y="384" text-anchor="end">branch</text>
+      <text class="tp" x="330" y="206" text-anchor="middle">aluop</text>
+      <!-- port names inside aludec -->
+      <text class="tp" x="238" y="74">funct3</text>
+      <text class="tp" x="238" y="104">funct7b5</text>
+      <text class="tp" x="238" y="134">op5</text>
+      <text class="tp" x="442" y="104" text-anchor="end">aluctrl</text>
+
+      <!-- ===== input pins (left) ===== -->
+      <text class="tn" x="104" y="68" text-anchor="end">funct3</text>
+      <text class="tp" x="104" y="82" text-anchor="end">instr[14:12]</text>
+      <rect class="pin" x="114" y="66" width="8" height="8"/>
+
+      <text class="tn" x="104" y="98" text-anchor="end">funct7b5</text>
+      <text class="tp" x="104" y="112" text-anchor="end">instr[30]</text>
+      <rect class="pin" x="114" y="96" width="8" height="8"/>
+
+      <text class="tn" x="104" y="238" text-anchor="end">op</text>
+      <text class="tp" x="104" y="252" text-anchor="end">instr[6:0]</text>
+      <rect class="pin" x="114" y="236" width="8" height="8"/>
+
+      <text class="tn" x="104" y="463" text-anchor="end">zero</text>
+      <text class="tp" x="104" y="477" text-anchor="end">from alu</text>
+      <rect class="pin" x="114" y="461" width="8" height="8"/>
+
+      <!-- input wires -->
+      <path class="w in bus" d="M122 70 H230"/>
+      <path class="w in" d="M122 100 H230"/>
+      <path class="w in bus" d="M122 240 H230"/>
+      <path class="w in" id="w-op5" d="M170 240 V130 H230"/>
+      <circle class="dot" cx="170" cy="240" r="3.5"/>
+      <path class="w" id="w-zero" d="M122 465 H520 V410 H560"/>
+
+      <text class="val" id="v-f3" x="134" y="63">000</text>
+      <text class="val" id="v-f7" x="134" y="93">0</text>
+      <text class="val" id="v-op" x="134" y="233">0110011</text>
+      <text class="ti" x="178" y="124">op[5]</text>
+      <text class="val" id="v-op5" x="178" y="148">1</text>
+      <text class="val" id="v-zero" x="134" y="458">0</text>
+
+      <!-- ===== internal wires ===== -->
+      <path class="w bus" id="w-aluop" d="M330 190 V150"/>
+      <text class="ti" x="340" y="168">aluop</text>
+      <text class="val" id="v-aluop" x="340" y="183">10</text>
+
+      <path class="w" id="w-jump" d="M430 355 H686"/>
+      <text class="ti" x="446" y="349">jump</text>
+      <text class="val" id="v-jump" x="486" y="349">0</text>
+
+      <path class="w" id="w-branch" d="M430 380 H560"/>
+      <text class="ti" x="446" y="374">branch</text>
+      <text class="val" id="v-branch" x="500" y="374">0</text>
+
+      <!-- AND gate: branch & zero -->
+      <path class="gate" d="M560 370 h25 a25 25 0 0 1 0 50 h-25 Z"/>
+      <path class="w" id="w-and" d="M610 395 H686"/>
+      <!-- OR gate: (branch & zero) | jump -->
+      <path class="gate" d="M680 345 Q700 375 680 405 Q725 405 745 375 Q725 345 680 345 Z"/>
+      <text class="ts" x="652" y="446" text-anchor="middle">pcsrc = (branch &amp; zero) | jump</text>
+
+      <!-- ===== output wires ===== -->
+      <path class="w bus" id="w-aluctrl" d="M450 100 H940"/>
+      <path class="w" id="w-regwrite" d="M430 215 H940"/>
+      <path class="w bus" id="w-immsrc" d="M430 240 H940"/>
+      <path class="w" id="w-alusrc" d="M430 265 H940"/>
+      <path class="w" id="w-memwrite" d="M430 290 H940"/>
+      <path class="w bus" id="w-resultsrc" d="M430 315 H940"/>
+      <path class="w" id="w-pcsrc" d="M745 375 H940"/>
+
+      <text class="val" id="v-aluctrl" x="900" y="93" text-anchor="end">000</text>
+      <text class="val" id="v-regwrite" x="900" y="209" text-anchor="end">1</text>
+      <text class="val" id="v-immsrc" x="900" y="234" text-anchor="end">xxx</text>
+      <text class="val" id="v-alusrc" x="900" y="259" text-anchor="end">0</text>
+      <text class="val" id="v-memwrite" x="900" y="284" text-anchor="end">0</text>
+      <text class="val" id="v-resultsrc" x="900" y="309" text-anchor="end">00</text>
+      <text class="val" id="v-pcsrc" x="900" y="369" text-anchor="end">0</text>
+
+      <!-- output pins (right) -->
+      <rect class="pin" x="940" y="96" width="8" height="8"/>
+      <rect class="pin" x="940" y="211" width="8" height="8"/>
+      <rect class="pin" x="940" y="236" width="8" height="8"/>
+      <rect class="pin" x="940" y="261" width="8" height="8"/>
+      <rect class="pin" x="940" y="286" width="8" height="8"/>
+      <rect class="pin" x="940" y="311" width="8" height="8"/>
+      <rect class="pin" x="940" y="371" width="8" height="8"/>
+
+      <text class="tn" x="958" y="98">aluctrl</text><text class="tp" x="958" y="112">→ alu.F</text>
+      <text class="tn" x="958" y="213">regwrite</text><text class="tp" x="958" y="227">→ regfile.we</text>
+      <text class="tn" x="958" y="242">immsrc</text><text class="tp" x="1030" y="242">→ ext</text>
+      <text class="tn" x="958" y="267">alusrc</text><text class="tp" x="1018" y="267">→ srcbmux</text>
+      <text class="tn" x="958" y="292">memwrite</text><text class="tp" x="958" y="306">→ dmem (top)</text>
+      <text class="tn" x="958" y="319">resultsrc</text><text class="tp" x="958" y="333">→ resultmux</text>
+      <text class="tn" x="958" y="377">pcsrc</text><text class="tp" x="958" y="391">→ pcmux</text>
+    </svg>
+    <figcaption>Squares are the ports of <code>controller.v</code>. Names in blue (<code>aluop</code>, <code>branch</code>, <code>jump</code>, <code>op[5]</code>) are internal wires that never leave the module. <code>maindec</code> only looks at <code>op</code>. <code>aludec</code> never sees <code>op</code> directly: it gets <code>aluop</code> from <code>maindec</code> and only uses <code>funct3</code> when <code>aluop</code> is <code>10</code>.</figcaption>
+  </figure>
+  </div>
+
+  <div class="legend">
+    <span><i style="border-color: var(--hot)"></i>set to 1, or a value that matters</span>
+    <span><i style="border-color: var(--wire); opacity: .5"></i>0</span>
+    <span><i style="border-color: var(--wire); border-top-style: dotted; opacity: .5"></i>don't care (x)</span>
+  </div>
+</div>
+
+<div class="grid2">
+  <section>
+    <h2>Main decoder: <code>op</code> → 12 bits</h2>
+    <p class="muted">One row per opcode. This becomes one <code>case (op)</code> where each branch assigns a whole row. Blue columns stay inside the controller.</p>
+    <div class="tbl"><table>
+      <thead><tr><th>Type</th><th>op</th><th>regwrite</th><th>immsrc</th><th>alusrc</th><th>memwrite</th><th>resultsrc</th><th class="int">branch</th><th class="int">aluop</th><th class="int">jump</th></tr></thead>
+      <tbody>
+        <tr data-row="R"><td>R-type</td><td>0110011</td><td>1</td><td>xxx</td><td>0</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td></tr>
+        <tr data-row="I"><td>I-ALU</td><td>0010011</td><td>1</td><td>000</td><td>1</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td></tr>
+        <tr data-row="lw"><td>lw</td><td>0000011</td><td>1</td><td>000</td><td>1</td><td>0</td><td>01</td><td>0</td><td>00</td><td>0</td></tr>
+        <tr data-row="sw"><td>sw</td><td>0100011</td><td>0</td><td>001</td><td>1</td><td>1</td><td>xx</td><td>0</td><td>00</td><td>0</td></tr>
+        <tr data-row="beq"><td>beq</td><td>1100011</td><td>0</td><td>010</td><td>0</td><td>0</td><td>xx</td><td>1</td><td>01</td><td>0</td></tr>
+        <tr data-row="jal"><td>jal</td><td>1101111</td><td>1</td><td>011</td><td>x</td><td>0</td><td>10</td><td>0</td><td>xx</td><td>1</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted"><code>immsrc</code> uses your extender's codes: 000 I, 001 S, 010 B, 011 J, 100 U.</p>
+  </section>
+
+  <section>
+    <h2>ALU decoder: → <code>aluctrl</code></h2>
+    <p class="muted">Outer <code>case (aluop)</code>; for <code>10</code>, an inner <code>case (funct3)</code>. Outputs use your ALU's <code>F</code> codes.</p>
+    <div class="tbl"><table>
+      <thead><tr><th class="int">aluop</th><th>funct3</th><th>{op5, funct7b5}</th><th>aluctrl</th><th>Operation</th></tr></thead>
+      <tbody>
+        <tr data-row="a00"><td>00</td><td>x</td><td>x</td><td>000</td><td class="n">add (lw, sw address)</td></tr>
+        <tr data-row="a01"><td>01</td><td>x</td><td>x</td><td>001</td><td class="n">sub (beq compare)</td></tr>
+        <tr data-row="radd"><td>10</td><td>000</td><td>00, 01, 10</td><td>000</td><td class="n">add, addi</td></tr>
+        <tr data-row="rsub"><td>10</td><td>000</td><td>11</td><td>001</td><td class="n">sub</td></tr>
+        <tr data-row="rslt"><td>10</td><td>010</td><td>x</td><td>101</td><td class="n">slt, slti</td></tr>
+        <tr data-row="ror"><td>10</td><td>110</td><td>x</td><td>011</td><td class="n">or, ori</td></tr>
+        <tr data-row="rand"><td>10</td><td>111</td><td>x</td><td>010</td><td class="n">and, andi</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted">Subtract only when <em>both</em> <code>op5</code> and <code>funct7b5</code> are 1. Without the <code>op5</code> check, <code>addi</code> with a negative immediate would be decoded as a subtract, because <code>instr[30]</code> is an immediate bit there. Click <code>addi</code> above to see it.</p>
+  </section>
+</div>
+
+<section>
+  <h2>How to lay out the code</h2>
+  <p>Split it the way the diagram is split: two small decoders, plus one line in <code>controller.v</code> that joins them. Give each module its own file: <code>sim.sh</code> finds a module by looking for a file with the same name, so a <code>controller_tb</code> could test <code>aludec</code> on its own.</p>
+  <div class="files">
+    <div>
+      <span class="fn">datapath/controller.v</span>
+<pre><span class="k">module</span> controller (
+    <span class="k">input</span>  [6:0] op,
+    <span class="k">input</span>  [2:0] funct3,
+    <span class="k">input</span>        funct7b5, zero,
+    <span class="k">output</span> [1:0] resultsrc,
+    <span class="k">output</span>       memwrite, pcsrc,
+    <span class="k">output</span>       alusrc, regwrite,
+    <span class="k">output</span> [2:0] immsrc, aluctrl
+);
+    <span class="k">wire</span> [1:0] aluop;
+    <span class="k">wire</span>       branch, jump;
+
+    <span class="c">// maindec md (...);</span>
+    <span class="c">// aludec  ad (...);</span>
+    <span class="c">// assign pcsrc = ...;</span>
+<span class="k">endmodule</span></pre>
+    </div>
+    <div>
+      <span class="fn">datapath/maindec.v</span>
+<pre><span class="k">module</span> maindec (
+    <span class="k">input</span>  [6:0] op,
+    <span class="k">output</span> [1:0] resultsrc,
+    <span class="k">output</span>       memwrite, branch,
+    <span class="k">output</span>       alusrc, regwrite, jump,
+    <span class="k">output</span> [2:0] immsrc,
+    <span class="k">output</span> [1:0] aluop
+);
+    <span class="c">// One 12-bit bus, one row per case.</span>
+    <span class="c">// Order = column order of the table.</span>
+    <span class="k">reg</span> [11:0] controls;
+    <span class="k">assign</span> {regwrite, immsrc, alusrc,
+            memwrite, resultsrc, branch,
+            aluop, jump} = controls;
+
+    <span class="c">// always @(*) case (op) ... endcase</span>
+<span class="k">endmodule</span></pre>
+    </div>
+    <div>
+      <span class="fn">datapath/aludec.v</span>
+<pre><span class="k">module</span> aludec (
+    <span class="k">input</span>        op5,
+    <span class="k">input</span>  [2:0] funct3,
+    <span class="k">input</span>        funct7b5,
+    <span class="k">input</span>  [1:0] aluop,
+    <span class="k">output</span> <span class="k">reg</span> [2:0] aluctrl
+);
+    <span class="k">wire</span> rtypesub = op5 &amp; funct7b5;
+
+    <span class="c">// always @(*)</span>
+    <span class="c">//   case (aluop)</span>
+    <span class="c">//     2'b00: ...</span>
+    <span class="c">//     2'b01: ...</span>
+    <span class="c">//     default: case (funct3) ...</span>
+<span class="k">endmodule</span></pre>
+    </div>
+  </div>
+  <p class="muted">The 12-bit <code>controls</code> bus is 1 + 3 + 1 + 1 + 2 + 1 + 2 + 1 bits, matching the table columns left to right. Each table row then becomes one line, for example <code>7'b0000011: controls = 12'b1_000_1_0_01_0_00_0; // lw</code>.</p>
+</section>
+
+<div class="grid2">
+  <section>
+    <h2>Things that trip people up</h2>
+    <ul class="gotchas">
+      <li><strong>No <code>clk</code> or <code>rst</code>.</strong> Your current <code>controller.v</code> has them. A single-cycle controller has no state, so remove them.</li>
+      <li><strong>Every <code>case</code> needs a <code>default</code>.</strong> Without one, an <code>always @(*)</code> block infers a latch. Defaulting to all <code>x</code> makes an unsupported opcode stand out in GTKWave.</li>
+      <li><strong>Don't cares.</strong> Writing <code>x</code> for don't cares lets synthesis simplify the logic. Writing <code>0</code> also works. It only matters that the 1s and real values are right.</li>
+      <li><strong><code>beq</code> works through subtraction.</strong> <code>aluctrl = 001</code> makes the ALU compute rs1 − rs2, so <code>zero</code> is 1 exactly when they're equal.</li>
+      <li><strong><code>memwrite</code> skips the datapath.</strong> It goes from the controller straight to <code>dmem</code> in the top level, which is why <code>datapath.v</code> has no <code>memwrite</code> port.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Wiring it up afterwards</h2>
+    <p class="muted">In the <code>riscv</code> module that holds both the controller and the datapath:</p>
+    <div class="tbl"><table>
+      <thead><tr><th>controller port</th><th>connects to</th></tr></thead>
+      <tbody>
+        <tr><td>op</td><td>instr[6:0]</td></tr>
+        <tr><td>funct3</td><td>instr[14:12]</td></tr>
+        <tr><td>funct7b5</td><td>instr[30]</td></tr>
+        <tr><td>zero</td><td>datapath.zero</td></tr>
+        <tr><td>memwrite</td><td>output of riscv → dmem</td></tr>
+        <tr><td>everything else</td><td>same-named datapath input</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted">To test it on its own: write <code>datapath/controller_tb.v</code> that sets <code>op</code>, <code>funct3</code> and <code>funct7b5</code> for each instruction in the picker, compares the outputs with the tables, and prints any mismatch. Run it with <code>./sim.sh datapath/controller_tb.v</code>.</p>
+  </section>
+</div>
+</div>
+
+<script>
+const MAIN = {
+  R:   { regwrite:'1', immsrc:'xxx', alusrc:'0', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0' },
+  I:   { regwrite:'1', immsrc:'000', alusrc:'1', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0' },
+  lw:  { regwrite:'1', immsrc:'000', alusrc:'1', memwrite:'0', resultsrc:'01', branch:'0', aluop:'00', jump:'0' },
+  sw:  { regwrite:'0', immsrc:'001', alusrc:'1', memwrite:'1', resultsrc:'xx', branch:'0', aluop:'00', jump:'0' },
+  beq: { regwrite:'0', immsrc:'010', alusrc:'0', memwrite:'0', resultsrc:'xx', branch:'1', aluop:'01', jump:'0' },
+  jal: { regwrite:'1', immsrc:'011', alusrc:'x', memwrite:'0', resultsrc:'10', branch:'0', aluop:'xx', jump:'1' }
+};
+const INS = {
+  add:  { asm:'add x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'0', arow:'radd', ctrl:'000',
+          note:'R-type writes the ALU result back to rd. aluop = 10 tells aludec to read funct3. funct3 = 000 with funct7b5 = 0 means add.' },
+  sub:  { asm:'sub x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'1', arow:'rsub', ctrl:'001',
+          note:'Same opcode and funct3 as add. The only difference is funct7b5 (instr[30]) = 1, and op[5] = 1 confirms this is R-type, so aludec picks sub.' },
+  and:  { asm:'and x3, x1, x2',  t:'R',   op:'0110011', f3:'111', f7:'0', arow:'rand', ctrl:'010',
+          note:'Same main decoder row as every R-type. Only funct3 changes, so only aluctrl changes.' },
+  or:   { asm:'or x3, x1, x2',   t:'R',   op:'0110011', f3:'110', f7:'0', arow:'ror',  ctrl:'011',
+          note:'Same main decoder row as every R-type. funct3 = 110 selects or.' },
+  slt:  { asm:'slt x3, x1, x2',  t:'R',   op:'0110011', f3:'010', f7:'0', arow:'rslt', ctrl:'101',
+          note:'funct3 = 010 selects slt. The ALU outputs 1 if rs1 < rs2 (signed), else 0.' },
+  addi: { asm:'addi x5, x0, -1', t:'I',   op:'0010011', f3:'000', f7:'1', arow:'radd', ctrl:'000',
+          note:'funct7b5 is 1 here only because -1 has all its immediate bits set, and instr[30] is one of them. op[5] = 0 marks this as I-type, so aludec still picks add. Without the op[5] check this addi would subtract.' },
+  lw:   { asm:'lw x6, 8(x2)',    t:'lw',  op:'0000011', f3:'010', f7:'0', arow:'a00',  ctrl:'000',
+          note:'aluop = 00 forces add to compute base + offset, ignoring funct3. resultsrc = 01 writes the memory data into rd.' },
+  sw:   { asm:'sw x6, 12(x2)',   t:'sw',  op:'0100011', f3:'010', f7:'0', arow:'a00',  ctrl:'000',
+          note:'memwrite = 1 goes to dmem in the top level. Nothing is written back, so regwrite = 0 and resultsrc is a don’t care.' },
+  beq:  { asm:'beq x1, x2, loop', t:'beq', op:'1100011', f3:'000', f7:'0', arow:'a01', ctrl:'001',
+          note:'aluop = 01 forces sub, so the ALU’s zero flag is 1 exactly when rs1 == rs2. Toggle zero to see pcsrc follow it.' },
+  jal:  { asm:'jal x1, func',    t:'jal', op:'1101111', f3:'imm', f7:'imm', arow:null, ctrl:'xxx',
+          note:'jump = 1 forces pcsrc = 1 regardless of zero. resultsrc = 10 writes pc + 4 into rd as the return address. The ALU isn’t used, so alusrc, aluop and aluctrl are don’t cares.' }
+};
+
+let cur = 'add', zero = false;
+const $ = id => document.getElementById(id);
+
+function show(name, val, wire) {
+  const t = $('v-' + name);
+  if (t) { t.textContent = val; t.classList.toggle('x', /^x+$/.test(val)); }
+  const w = $('w-' + (wire || name));
+  if (!w) return;
+  const dc = /^x+$/.test(val);
+  w.classList.toggle('dc', dc);
+  w.classList.toggle('on', !dc && (val.length > 1 ? true : val === '1'));
+}
+
+function render() {
+  const ins = INS[cur], m = MAIN[ins.t];
+  document.querySelectorAll('[data-ins]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ins === cur)));
+  $('asm').textContent = ins.asm;
+  $('note').textContent = ins.note;
+
+  $('v-op').textContent = ins.op;
+  $('v-f3').textContent = ins.f3;
+  $('v-f7').textContent = ins.f7;
+  show('op5', ins.op[1]);
+  show('zero', zero ? '1' : '0');
+
+  ['regwrite','immsrc','alusrc','memwrite','resultsrc','branch','aluop','jump'].forEach(k => show(k, m[k]));
+  show('aluctrl', ins.ctrl);
+
+  const andOut = m.branch === '1' && zero;
+  const and = $('w-and');
+  and.classList.toggle('on', andOut);
+  show('pcsrc', (andOut || m.jump === '1') ? '1' : '0');
+
+  document.querySelectorAll('tr[data-row]').forEach(r =>
+    r.classList.toggle('hl', r.dataset.row === ins.t || r.dataset.row === ins.arow));
+}
+
+document.querySelectorAll('[data-ins]').forEach(b => b.addEventListener('click', () => { cur = b.dataset.ins; render(); }));
+$('zerobtn').addEventListener('click', () => {
+  zero = !zero;
+  $('zerobtn').textContent = 'zero = ' + (zero ? '1' : '0');
+  $('zerobtn').setAttribute('aria-pressed', String(zero));
+  render();
+});
+render();
+</script>

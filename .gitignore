@@ -1,4 +1,6 @@
 # Icarus Verilog & waveform dumps
+build/
+*.vvp
 *.vcd
 *_sim
 a.out

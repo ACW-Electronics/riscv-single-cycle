@@ -10,7 +10,7 @@ module regfile_tb ();
     regfile regfile_test (.clk(clk), .we(we), .a1(a1), .a2(a2), .a3(a3), .wd3(wd3), .rd1(rd1), .rd2(rd2));
 
     initial begin
-        $dumpfile("/Users/andrewwong/riscv_cpu/regfile/regfile.vcd");
+        $dumpfile("regfile.vcd");
         $dumpvars(0, regfile_tb);
         clk = 0; #5
         clk = 1; #5
