@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
-module datapath (
-    input clk, rst, 
+module controller (
+    input clk, rst,
 
 );
 

@@ -9,7 +9,7 @@ module flopr
 
 always @(posedge clk) begin
     if (rst) begin
-        q <= WIDTH'b0;
+        q <= {WIDTH{1'b0}};
     end
     else begin
         q <= d;

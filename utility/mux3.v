@@ -3,7 +3,7 @@
 module mux3 
     #(parameter WIDTH = 32)(
     input sel0, sel1,
-    input [WIDTH-1: 0] d0, d1, d2, d3
+    input [WIDTH-1: 0] d0, d1, d2, d3,
     output [WIDTH-1: 0] y
 );
 

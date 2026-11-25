@@ -1,0 +1,448 @@
+<title>RV32I Datapath Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one wide schematic up top with an instruction picker, then reference tables below. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #667085; --line: #c9d0dc;
+  --wire: #3a4456; --ctrl: #2563c9; --hot: #d96b12; --hot-soft: #fbe9da; --ext: #eef1f6;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; font-weight: 600; }
+h2 { font-size: 1.2rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+.muted { color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 6px; }
+
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.picker span { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.picker button { font: 500 14px var(--mono); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+.picker button:hover { border-color: var(--hot); }
+.picker button[aria-pressed="true"] { background: var(--hot); border-color: var(--hot); color: #fff; }
+.picker button:focus-visible { outline: 2px solid var(--ctrl); outline-offset: 2px; }
+
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.scroll { overflow-x: auto; }
+figure { margin: 0; }
+svg.dp { display: block; width: 100%; min-width: 860px; height: auto; color: var(--wire); }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.explain { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.explain .what { font-family: var(--mono); font-size: 14px; color: var(--hot); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+
+/* SVG parts, styled from page CSS */
+.w { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .45; transition: stroke .15s, opacity .15s; }
+.w.on { stroke: var(--hot); opacity: 1; stroke-width: 2.6; }
+.bus { stroke-width: 4; }
+.bus.on { stroke-width: 5; }
+.blk { fill: var(--panel); stroke: currentColor; stroke-width: 1.6; }
+.extb { fill: var(--ext); stroke: currentColor; stroke-width: 1.3; stroke-dasharray: 5 4; }
+.dot { fill: currentColor; }
+.t { fill: var(--fg); font: 600 13px var(--sans); }
+.ts { fill: var(--muted); font: 400 10.5px var(--mono); }
+.tw { fill: var(--fg); font: 500 11px var(--mono); }
+.tp { fill: var(--muted); font: 400 10px var(--mono); }
+.c { stroke: var(--ctrl); stroke-width: 1.6; fill: none; }
+.ct { fill: var(--ctrl); font: 500 11px var(--mono); }
+.pin { fill: var(--panel); stroke: var(--fg); stroke-width: 1.4; }
+.bw { stroke: var(--fg); stroke-width: 1.3; }
+.bwt { fill: var(--fg); font: 600 10px var(--mono); }
+.arr { fill: currentColor; } .arr-on { fill: var(--hot); } .arr-c { fill: var(--ctrl); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td code { white-space: nowrap; }
+tbody tr.hl td { background: var(--hot-soft); }
+.num { font-variant-numeric: tabular-nums; }
+
+.bits { display: grid; grid-template-columns: 7fr 5fr 5fr 3fr 5fr 7fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.bits div { padding: 8px 4px; text-align: center; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bits div:last-child { border-right: 0; }
+.bits b { font: 600 13px var(--mono); }
+.bits small { font: 400 11px var(--mono); color: var(--muted); }
+.bits .rf { background: var(--hot-soft); }
+
+ol.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 10px; }
+ol.steps li { padding-left: 4px; }
+ol.steps .chk { display: block; color: var(--muted); font-size: 13.5px; }
+ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 640px) { .explain { grid-template-columns: 1fr; } h1 { font-size: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) { .w { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>RV32I Datapath Map</h1>
+    <p class="muted">This is the single-cycle datapath from Harris &amp; Harris Fig. 7.15, drawn with the module and port names from your repo. Pick an instruction to see which wires it uses and what the controller drives.</p>
+  </header>
+
+  <div class="stage">
+    <div class="picker" role="group" aria-label="Instruction">
+      <span>Instruction</span>
+      <button data-i="R">R-type</button>
+      <button data-i="lw">lw</button>
+      <button data-i="sw">sw</button>
+      <button data-i="beq">beq</button>
+      <button data-i="addi">addi</button>
+      <button data-i="jal">jal</button>
+    </div>
+
+    <div class="explain">
+      <div>
+        <div class="what" id="what"></div>
+        <p id="why"></p>
+      </div>
+      <div class="legend">
+        <span><i style="border-color:var(--hot)"></i>used by this instruction</span>
+        <span><i style="border-color:var(--ctrl)"></i>control input</span>
+        <span><i style="border-color:var(--wire);border-top-style:dashed"></i>outside datapath.v</span>
+        <span><b class="mono" style="color:var(--fg)">/32</b> wire width in bits</span>
+      </div>
+    </div>
+
+    <figure>
+      <div class="scroll">
+      <svg class="dp" viewBox="0 0 1060 610" role="img" aria-label="Single-cycle RISC-V datapath: PC register feeds instruction memory, instruction fields feed the register file and extender, the ALU computes from srca and srcb, and the result mux writes aluresult, readdata, or pcplus4 back to the register file. Two adders compute pcplus4 and pctarget, and the PC mux picks the next PC.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr" d="M0 0L10 5L0 10z"/></marker>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arr-on" d="M0 0L10 5L0 10z"/></marker>
+          <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr-c" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+
+        <!-- wires -->
+        <path class="w" id="pcnext" d="M60 280H90"/>
+        <path class="w" id="pc" d="M150 280H200"/>
+        <path class="w" id="pc_t4" d="M170 280V515H210"/>
+        <path class="w" id="pc_tt" d="M170 470H560"/>
+        <path class="w" id="instr" d="M300 280H330"/>
+        <path class="w bus" id="bus" d="M330 175V415"/>
+        <path class="w" id="a1" d="M330 230H380"/>
+        <path class="w" id="a2" d="M330 270H380"/>
+        <path class="w" id="a3" d="M330 310H380"/>
+        <path class="w" id="ext_in" d="M330 415H390"/>
+        <path class="w" id="p4" d="M260 525H290"/>
+        <path class="w" id="p4mux" d="M290 525V565H10V260H30"/>
+        <path class="w" id="p4res" d="M290 525H920V330H940"/>
+        <path class="w" id="pctarget" d="M610 475H640V585H20V300H30"/>
+        <path class="w" id="srca" d="M500 230H630"/>
+        <path class="w" id="rd2" d="M500 300H560"/>
+        <path class="w" id="writedata" d="M530 300V375H760V340H780"/>
+        <path class="w" id="immext" d="M510 415H545V340H560"/>
+        <path class="w" id="immext_t" d="M545 415V490H560"/>
+        <path class="w" id="srcb" d="M590 320H630"/>
+        <path class="w" id="alures" d="M700 280H780"/>
+        <path class="w" id="alures_res" d="M740 280V190H915V270H940"/>
+        <path class="w" id="readdata" d="M880 300H940"/>
+        <path class="w" id="result" d="M970 300H1010V550H360V340H380"/>
+        <path class="w" id="zero" d="M690 235V162"/>
+        <path class="w" id="toctrl" d="M330 175V146" stroke-dasharray="4 3"/>
+
+        <!-- junction dots -->
+        <circle class="dot" cx="170" cy="280" r="3.2"/>
+        <circle class="dot" cx="170" cy="470" r="3.2"/>
+        <circle class="dot" cx="290" cy="525" r="3.2"/>
+        <circle class="dot" cx="530" cy="300" r="3.2"/>
+        <circle class="dot" cx="545" cy="415" r="3.2"/>
+        <circle class="dot" cx="740" cy="280" r="3.2"/>
+
+        <!-- PC mux -->
+        <polygon class="blk" points="30,240 60,252 60,308 30,320"/>
+        <text class="tp" x="34" y="264">0</text><text class="tp" x="34" y="304">1</text>
+        <!-- PC register -->
+        <rect class="blk" x="90" y="250" width="60" height="60" rx="3"/>
+        <text class="t" x="120" y="278" text-anchor="middle">pcreg</text>
+        <text class="ts" x="120" y="293" text-anchor="middle">flopr 32b</text>
+        <polyline fill="none" stroke="currentColor" stroke-width="1.3" points="112,310 120,302 128,310"/>
+        <text class="ts" x="120" y="326" text-anchor="middle">clk rst</text>
+        <!-- imem (external) -->
+        <rect class="extb" x="200" y="235" width="100" height="90" rx="3"/>
+        <text class="t" x="250" y="270" text-anchor="middle">imem</text>
+        <text class="ts" x="250" y="288" text-anchor="middle">A → RD</text>
+        <text class="ts" x="250" y="306" text-anchor="middle">top level</text>
+        <!-- PC+4 adder -->
+        <rect class="blk" x="210" y="500" width="50" height="50" rx="3"/>
+        <text class="t" x="235" y="530" text-anchor="middle">+</text>
+        <path class="w" d="M196 535H210" style="opacity:.8"/>
+        <text class="tw" x="192" y="539" text-anchor="end">4</text>
+        <text class="ts" x="235" y="562" text-anchor="middle">pcadd4</text>
+        <!-- regfile -->
+        <rect class="blk" x="380" y="190" width="120" height="165" rx="3"/>
+        <text class="t" x="440" y="278" text-anchor="middle">rf</text>
+        <text class="ts" x="440" y="292" text-anchor="middle">regfile</text>
+        <text class="ts" x="440" y="306" text-anchor="middle">32 regs × 32b</text>
+        <text class="tp" x="386" y="234">a1</text><text class="tp" x="386" y="274">a2</text>
+        <text class="tp" x="386" y="314">a3</text><text class="tp" x="386" y="344">wd3</text>
+        <text class="tp" x="494" y="234" text-anchor="end">rd1</text><text class="tp" x="494" y="304" text-anchor="end">rd2</text>
+        <polyline fill="none" stroke="currentColor" stroke-width="1.3" points="432,355 440,347 448,355"/>
+        <!-- extender -->
+        <rect class="blk" x="390" y="392" width="120" height="46" rx="3"/>
+        <text class="t" x="450" y="414" text-anchor="middle">ext</text>
+        <text class="ts" x="450" y="428" text-anchor="middle">extender 25→32</text>
+        <!-- srcb mux -->
+        <polygon class="blk" points="560,280 590,292 590,348 560,360"/>
+        <text class="tp" x="564" y="304">0</text><text class="tp" x="564" y="344">1</text>
+        <!-- PC target adder -->
+        <rect class="blk" x="560" y="455" width="50" height="45" rx="3"/>
+        <text class="t" x="585" y="482" text-anchor="middle">+</text>
+        <text class="ts" x="585" y="514" text-anchor="middle">pcaddbranch</text>
+        <!-- ALU -->
+        <polygon class="blk" points="630,205 700,240 700,320 630,355 630,300 645,280 630,260"/>
+        <text class="t" x="675" y="284" text-anchor="middle">alu</text>
+        <text class="tp" x="636" y="234">a</text><text class="tp" x="636" y="324">b</text>
+        <!-- dmem (external) -->
+        <rect class="extb" x="780" y="240" width="100" height="130" rx="3"/>
+        <text class="t" x="830" y="292" text-anchor="middle">dmem</text>
+        <text class="ts" x="830" y="310" text-anchor="middle">A, WD → RD</text>
+        <text class="ts" x="830" y="328" text-anchor="middle">top level</text>
+        <text class="tp" x="786" y="284">A</text><text class="tp" x="786" y="344">WD</text>
+        <text class="tp" x="874" y="304" text-anchor="end">RD</text>
+        <!-- result mux -->
+        <polygon class="blk" points="940,250 970,262 970,338 940,350"/>
+        <text class="tp" x="943" y="274">0</text><text class="tp" x="943" y="304">1</text><text class="tp" x="943" y="334">2</text>
+
+        <!-- control stubs -->
+        <path class="c" d="M45 222V244" marker-end="url(#ac)"/>
+        <text class="ct" id="v-pcsrc" x="45" y="216" text-anchor="middle">pcsrc</text>
+        <path class="c" d="M440 168V188" marker-end="url(#ac)"/>
+        <text class="ct" id="v-regwrite" x="440" y="162" text-anchor="middle">regwrite</text>
+        <path class="c" d="M492 370V390" marker-end="url(#ac)"/>
+        <text class="ct" id="v-immsrc" x="486" y="384" text-anchor="end">immsrc</text>
+        <path class="c" d="M575 262V284" marker-end="url(#ac)"/>
+        <text class="ct" id="v-alusrc" x="575" y="256" text-anchor="middle">alusrc</text>
+        <path class="c" d="M655 186V215" marker-end="url(#ac)"/>
+        <text class="ct" id="v-alucontrol" x="655" y="180" text-anchor="middle">alucontrol</text>
+        <path class="c" d="M830 218V238" marker-end="url(#ac)" stroke-dasharray="4 3"/>
+        <text class="ct" id="v-memwrite" x="830" y="212" text-anchor="middle">memwrite</text>
+        <path class="c" d="M955 228V254" marker-end="url(#ac)"/>
+        <text class="ct" id="v-resultsrc" x="924" y="222">resultsrc</text>
+
+        <!-- port pins (where datapath.v talks to the outside) -->
+        <rect class="pin" x="181" y="275" width="10" height="10"/><text class="tw" x="186" y="268" text-anchor="middle">pc</text>
+        <rect class="pin" x="310" y="275" width="10" height="10"/><text class="tw" x="315" y="268" text-anchor="middle">instr</text>
+        <rect class="pin" x="720" y="275" width="10" height="10"/><text class="tw" x="716" y="268" text-anchor="middle">aluresult</text>
+        <rect class="pin" x="695" y="370" width="10" height="10"/><text class="tw" x="700" y="395" text-anchor="middle">writedata</text>
+        <rect class="pin" x="900" y="295" width="10" height="10"/><text class="tw" x="905" y="318" text-anchor="middle">readdata</text>
+        <rect class="pin" x="685" y="185" width="10" height="10"/><text class="tw" x="690" y="156" text-anchor="middle">zero</text>
+
+        <!-- bus widths: slash + bit count -->
+        <g>
+          <line class="bw" x1="74" y1="286" x2="82" y2="274"/><text class="bwt" x="78" y="297" text-anchor="middle">32</text>
+          <line class="bw" x1="156" y1="286" x2="164" y2="274"/><text class="bwt" x="160" y="297" text-anchor="middle">32</text>
+          <line class="bw" x1="301" y1="286" x2="309" y2="274"/><text class="bwt" x="303" y="297" text-anchor="middle">32</text>
+          <line class="bw" x1="324" y1="199" x2="336" y2="191"/><text class="bwt" x="320" y="199" text-anchor="end">32</text>
+          <line class="bw" x1="366" y1="236" x2="374" y2="224"/><text class="bwt" x="370" y="246" text-anchor="middle">5</text>
+          <line class="bw" x1="366" y1="276" x2="374" y2="264"/><text class="bwt" x="370" y="286" text-anchor="middle">5</text>
+          <line class="bw" x1="366" y1="316" x2="374" y2="304"/><text class="bwt" x="370" y="326" text-anchor="middle">5</text>
+          <line class="bw" x1="376" y1="421" x2="384" y2="409"/><text class="bwt" x="380" y="431" text-anchor="middle">25</text>
+          <line class="bw" x1="516" y1="236" x2="524" y2="224"/><text class="bwt" x="520" y="247" text-anchor="middle">32</text>
+          <line class="bw" x1="511" y1="306" x2="519" y2="294"/><text class="bwt" x="515" y="317" text-anchor="middle">32</text>
+          <line class="bw" x1="616" y1="381" x2="624" y2="369"/><text class="bwt" x="620" y="392" text-anchor="middle">32</text>
+          <line class="bw" x1="539" y1="364" x2="551" y2="356"/><text class="bwt" x="553" y="366">32</text>
+          <line class="bw" x1="539" y1="454" x2="551" y2="446"/><text class="bwt" x="553" y="456">32</text>
+          <line class="bw" x1="606" y1="326" x2="614" y2="314"/><text class="bwt" x="610" y="337" text-anchor="middle">32</text>
+          <line class="bw" x1="756" y1="286" x2="764" y2="274"/><text class="bwt" x="760" y="297" text-anchor="middle">32</text>
+          <line class="bw" x1="826" y1="196" x2="834" y2="184"/><text class="bwt" x="830" y="181" text-anchor="middle">32</text>
+          <line class="bw" x1="921" y1="306" x2="929" y2="294"/><text class="bwt" x="927" y="290" text-anchor="middle">32</text>
+          <line class="bw" x1="1004" y1="424" x2="1016" y2="416"/><text class="bwt" x="1018" y="424">32</text>
+          <line class="bw" x1="466" y1="531" x2="474" y2="519"/><text class="bwt" x="470" y="542" text-anchor="middle">32</text>
+          <line class="bw" x1="216" y1="571" x2="224" y2="559"/><text class="bwt" x="232" y="557" text-anchor="middle">32</text>
+          <line class="bw" x1="396" y1="591" x2="404" y2="579"/><text class="bwt" x="400" y="603" text-anchor="middle">32</text>
+          <line class="bw" x1="164" y1="384" x2="176" y2="376"/><text class="bwt" x="180" y="384">32</text>
+          <line class="bw" x1="446" y1="476" x2="454" y2="464"/><text class="bwt" x="458" y="464">32</text>
+          <line class="bw" x1="684" y1="214" x2="696" y2="206"/><text class="bwt" x="700" y="214">1</text>
+        </g>
+
+        <!-- wire names -->
+        <text class="tw" x="75" y="273" text-anchor="middle">pcnext</text>
+        <text class="ts" x="355" y="226" text-anchor="middle">[19:15]</text>
+        <text class="ts" x="355" y="266" text-anchor="middle">[24:20]</text>
+        <text class="ts" x="355" y="306" text-anchor="middle">[11:7]</text>
+        <text class="ts" x="360" y="410" text-anchor="middle">[31:7]</text>
+        <text class="ts" x="330" y="138" text-anchor="middle">op 7b · funct3 3b · funct7b5 1b → controller</text>
+        <text class="tw" x="565" y="224" text-anchor="middle">srca</text>
+        <text class="tw" x="610" y="314" text-anchor="middle">srcb</text>
+        <text class="tw" x="525" y="409" text-anchor="middle">immext</text>
+        <text class="tw" x="400" y="519" text-anchor="middle">pcplus4</text>
+        <text class="tw" x="400" y="465" text-anchor="middle">pc</text>
+        <text class="tw" x="150" y="580" text-anchor="middle">pctarget</text>
+        <text class="tw" x="150" y="560" text-anchor="middle">pcplus4</text>
+        <text class="tw" x="700" y="545" text-anchor="middle">result</text>
+        <text class="tw" x="990" y="294" text-anchor="middle">result</text>
+      </svg>
+      </div>
+      <figcaption>Squares mark the ports of <code>datapath.v</code>. Everything inside the dashed memories lives in the top level, so <code>pc</code>, <code>aluresult</code> and <code>writedata</code> leave the module and <code>instr</code> and <code>readdata</code> come back in. Blue arrows are the control inputs from <code>controller.v</code>. <code>memwrite</code> goes straight to dmem and never enters the datapath.</figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <h2>Widths at a glance</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Group</th><th>Signals</th><th class="num">Bits</th></tr></thead>
+      <tbody>
+        <tr><td>Input ports</td><td><code>clk</code> <code>rst</code> <code>pcsrc</code> <code>alusrc</code> <code>regwrite</code></td><td class="num">1 each</td></tr>
+        <tr><td></td><td><code>resultsrc</code></td><td class="num">2 <span class="muted">[1:0]</span></td></tr>
+        <tr><td></td><td><code>immsrc</code> <code>alucontrol</code></td><td class="num">3 <span class="muted">[2:0]</span></td></tr>
+        <tr><td></td><td><code>instr</code> <code>readdata</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
+        <tr><td>Output ports</td><td><code>pc</code> <code>aluresult</code> <code>writedata</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
+        <tr><td></td><td><code>zero</code></td><td class="num">1</td></tr>
+        <tr><td>Internal wires</td><td><code>pcnext</code> <code>pcplus4</code> <code>pctarget</code> <code>immext</code> <code>srca</code> <code>srcb</code> <code>result</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
+        <tr><td>Slices of instr</td><td><code>instr[19:15]</code> <code>instr[24:20]</code> <code>instr[11:7]</code></td><td class="num">5 each</td></tr>
+        <tr><td></td><td><code>instr[31:7]</code> into extender</td><td class="num">25</td></tr>
+        <tr><td>Storage</td><td>pcreg: one register</td><td class="num">32</td></tr>
+        <tr><td></td><td>rf: 32 registers (x0 hardwired 0)</td><td class="num">32 × 32</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted" style="font-size:13.5px">Register addresses are 5 bits because 2<sup>5</sup> = 32 registers. Every data value is 32 bits because this is RV32I.</p>
+  </section>
+
+  <section>
+    <h2>Where the register addresses come from</h2>
+    <p>The register file reads straight out of the instruction word. Slice the same bits for every instruction type. The controller decides whether those bits mean anything for the current instruction.</p>
+    <div class="bits" aria-label="R-type instruction field layout">
+      <div><b>funct7</b><small>31:25</small></div>
+      <div class="rf"><b>rs2 → a2</b><small>24:20</small></div>
+      <div class="rf"><b>rs1 → a1</b><small>19:15</small></div>
+      <div><b>f3</b><small>14:12</small></div>
+      <div class="rf"><b>rd → a3</b><small>11:7</small></div>
+      <div><b>op</b><small>6:0</small></div>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Control values for this instruction</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Signal</th><th class="num">Bits</th><th>Value</th><th>Meaning</th></tr></thead>
+        <tbody id="ctrlrows"></tbody>
+      </table></div>
+      <p class="muted" style="font-size:13.5px">x means don't care. For beq the controller computes <code>pcsrc = branch &amp; zero</code>, and for jal it forces <code>pcsrc = 1</code>.</p>
+    </section>
+
+    <section>
+      <h2>Instance checklist</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>Instance</th><th>Module</th><th>Connects</th></tr></thead>
+        <tbody>
+          <tr><td>pcreg</td><td><code>flopr</code></td><td><code>pcnext → pc</code></td></tr>
+          <tr><td>pcadd4</td><td>adder / <code>+</code></td><td><code>pc + 4 → pcplus4</code></td></tr>
+          <tr><td>pcaddbranch</td><td>adder / <code>+</code></td><td><code>pc + immext → pctarget</code></td></tr>
+          <tr><td>pcmux</td><td><code>mux2</code></td><td>sel <code>pcsrc</code>: 0 <code>pcplus4</code>, 1 <code>pctarget</code></td></tr>
+          <tr><td>rf</td><td><code>regfile</code></td><td><code>rd1 → srca</code>, <code>rd2 → writedata</code>, <code>wd3 ← result</code></td></tr>
+          <tr><td>ext</td><td><code>extender</code></td><td><code>instr[31:7] → immext</code></td></tr>
+          <tr><td>srcbmux</td><td><code>mux2</code></td><td>sel <code>alusrc</code>: 0 <code>writedata</code>, 1 <code>immext</code></td></tr>
+          <tr><td>alu</td><td><code>alu</code></td><td><code>.F(alucontrol)</code>, <code>.out(aluresult)</code>, <code>.zero(zero)</code></td></tr>
+          <tr><td>resultmux</td><td><code>mux3</code></td><td>sel <code>resultsrc</code>: 0 <code>aluresult</code>, 1 <code>readdata</code>, 2 <code>pcplus4</code></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section>
+      <h2>Build it in this order</h2>
+      <ol class="steps">
+        <li>Write the port list and declare the 7 internal wires: <code>pcnext pcplus4 pctarget immext srca srcb result</code>.
+          <span class="chk">Check: <code>iverilog -Wall</code> compiles the empty module with no errors.</span></li>
+        <li>Close the next-PC loop: pcreg, pcadd4, pcaddbranch, pcmux.
+          <span class="chk">Check: in a small testbench with <code>pcsrc = 0</code>, <code>pc</code> reads 0, 4, 8, 12 after reset.</span></li>
+        <li>Add rf and ext, slicing <code>instr</code> as shown above.
+          <span class="chk">Check: feed a known <code>instr</code> and confirm <code>a1</code>, <code>a2</code> and <code>a3</code> hold the right register numbers in the waveform.</span></li>
+        <li>Add srcbmux and alu.
+          <span class="chk">Check: preload two registers and confirm <code>aluresult</code> matches for both <code>alusrc</code> values.</span></li>
+        <li>Add resultmux and wire <code>result</code> back to <code>wd3</code>.
+          <span class="chk">Check: with <code>regwrite = 1</code>, the register file gets written on the next rising edge.</span></li>
+      </ol>
+    </section>
+    <section>
+      <h2>Easy mistakes</h2>
+      <ul class="gotchas">
+        <li><code>writedata</code> is <code>rd2</code> itself, tapped before srcbmux. If you take it from <code>srcb</code>, every <code>sw</code> stores the address offset.</li>
+        <li><code>pctarget</code> is <code>pc + immext</code>, not <code>pcplus4 + immext</code>. Branch offsets are relative to the branch instruction.</li>
+        <li>Use your own port names when you instantiate: <code>alu</code> uses <code>F</code> and <code>out</code>, <code>flopr</code> uses <code>rst</code>, and <code>regfile</code> uses <code>we</code>.</li>
+        <li>resultmux assumes <code>mux3</code> takes a 2-bit <code>sel</code> with 00, 01, 10. Your current file has separate <code>sel0</code>/<code>sel1</code> bits and four inputs, so fix that first.</li>
+        <li>A wire you forget to declare becomes an implicit 1-bit net in Verilog. Put <code>`default_nettype none</code> at the top of the file and that turns into a compile error.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+const BASE = ["pcnext","pc","pc_t4","instr","bus","p4"];
+const I = {
+  R:    { what:"add x5, x6, x7   →   rd ← rs1 op rs2",
+          why:"Both register reads feed the ALU. alusrc = 0 picks rd2, and the ALU result goes straight back to rd.",
+          on:["a1","a2","a3","srca","rd2","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"0",regwrite:"1",immsrc:"xxx",alusrc:"0",alucontrol:"from funct3/funct7",memwrite:"0",resultsrc:"00"} },
+  lw:   { what:"lw x6, -4(x9)   →   rd ← mem[rs1 + imm]",
+          why:"The ALU adds rs1 and the I-type immediate to form an address. Data memory's readdata is what gets written back.",
+          on:["a1","a3","ext_in","immext","srca","srcb","alures","readdata","result","p4mux"],
+          c:{pcsrc:"0",regwrite:"1",immsrc:"000",alusrc:"1",alucontrol:"000 (add)",memwrite:"0",resultsrc:"01"} },
+  sw:   { what:"sw x6, 8(x9)   →   mem[rs1 + imm] ← rs2",
+          why:"Same address math as lw with an S-type immediate. rd2 leaves the module as writedata. Nothing gets written to the register file.",
+          on:["a1","a2","ext_in","immext","srca","rd2","writedata","srcb","alures","p4mux"],
+          c:{pcsrc:"0",regwrite:"0",immsrc:"001",alusrc:"1",alucontrol:"000 (add)",memwrite:"1",resultsrc:"xx"} },
+  beq:  { what:"beq x4, x4, L7   →   if rs1 == rs2: pc ← pc + imm",
+          why:"The ALU subtracts rs2 from rs1. zero goes to the controller, which picks pctarget when the registers are equal and pcplus4 otherwise.",
+          on:["a1","a2","ext_in","srca","rd2","srcb","zero","immext_t","pc_tt","pctarget","p4mux"],
+          c:{pcsrc:"zero",regwrite:"0",immsrc:"010",alusrc:"0",alucontrol:"001 (sub)",memwrite:"0",resultsrc:"xx"} },
+  addi: { what:"addi x2, x0, 5   →   rd ← rs1 + imm",
+          why:"This uses the same path as lw, except resultsrc = 00 takes the ALU result instead of memory.",
+          on:["a1","a3","ext_in","immext","srca","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"0",regwrite:"1",immsrc:"000",alusrc:"1",alucontrol:"000 (add)",memwrite:"0",resultsrc:"00"} },
+  jal:  { what:"jal x0, L1   →   rd ← pc + 4,  pc ← pc + imm",
+          why:"The ALU sits idle. pcaddbranch computes the jump target, and pcplus4 goes through the result mux into rd as the return address.",
+          on:["a3","ext_in","immext_t","pc_tt","pctarget","p4res","result"],
+          c:{pcsrc:"1",regwrite:"1",immsrc:"011",alusrc:"x",alucontrol:"xxx",memwrite:"0",resultsrc:"10"} },
+};
+const MEANING = {
+  pcsrc:"0 = pcplus4, 1 = pctarget", regwrite:"write result into rd at the clock edge",
+  immsrc:"000 I, 001 S, 010 B, 011 J, 100 U", alusrc:"0 = rd2, 1 = immext",
+  alucontrol:"000 add, 001 sub, 010 and, 011 or, 101 slt", memwrite:"to dmem, not the datapath",
+  resultsrc:"00 aluresult, 01 readdata, 10 pcplus4"
+};
+const BITS = { pcsrc:1, regwrite:1, immsrc:3, alusrc:1, alucontrol:3, memwrite:1, resultsrc:2 };
+const RANGE = s => BITS[s] > 1 ? `[${BITS[s]-1}:0]` : "";
+const ENDS = new Set(["pcnext","pc","pc_t4","pc_tt","a1","a2","a3","ext_in","p4mux","p4res","pctarget","srca","rd2","writedata","immext","immext_t","srcb","alures","alures_res","readdata","result","zero"]);
+function show(k) {
+  const d = I[k], on = new Set([...BASE, ...d.on]);
+  document.querySelectorAll("svg .w[id]").forEach(p => {
+    const hot = on.has(p.id);
+    p.classList.toggle("on", hot);
+    if (ENDS.has(p.id)) p.setAttribute("marker-end", hot ? "url(#ah)" : "url(#a)");
+  });
+  for (const [s, v] of Object.entries(d.c)) {
+    const t = document.getElementById("v-" + s);
+    if (t) t.textContent = s + RANGE(s) + " = " + v;
+  }
+  document.getElementById("v-alucontrol").textContent = "alucontrol[2:0] = " + (k === "R" ? "funct" : d.c.alucontrol.split(" ")[0]);
+  document.getElementById("what").textContent = d.what;
+  document.getElementById("why").textContent = d.why;
+  document.getElementById("ctrlrows").innerHTML = Object.entries(d.c).map(([s, v]) =>
+    `<tr><td><code>${s}</code></td><td class="num">${BITS[s]}</td><td class="num"><code>${v}</code></td><td class="muted">${MEANING[s]}</td></tr>`).join("");
+  document.querySelectorAll(".picker button").forEach(b => b.setAttribute("aria-pressed", b.dataset.i === k));
+}
+document.querySelectorAll(".picker button").forEach(b => b.addEventListener("click", () => show(b.dataset.i)));
+show("lw");
+</script>
