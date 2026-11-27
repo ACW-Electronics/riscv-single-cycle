@@ -95,18 +95,21 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 <div class="wrap">
   <header>
     <h1>RV32I Datapath Map</h1>
-    <p class="muted">This is the single-cycle datapath from Harris &amp; Harris Fig. 7.15, drawn with the module and port names from your repo. Pick an instruction to see which wires it uses and what the controller drives.</p>
+    <p class="muted">The single-cycle datapath from Harris &amp; Harris Fig. 7.15, extended for full RV32I: <code>srcamux</code> feeds the ALU's a input from rd1, pc or 0 (for lui and auipc), <code>pcmux</code> gets a third input for jalr, and the ALU sends all four flags to the controller. Pick an instruction to see which wires it uses and what the controller drives.</p>
   </header>
 
   <div class="stage">
     <div class="picker" role="group" aria-label="Instruction">
       <span>Instruction</span>
       <button data-i="R">R-type</button>
+      <button data-i="addi">addi</button>
       <button data-i="lw">lw</button>
       <button data-i="sw">sw</button>
-      <button data-i="beq">beq</button>
-      <button data-i="addi">addi</button>
+      <button data-i="br">branch</button>
       <button data-i="jal">jal</button>
+      <button data-i="jalr">jalr</button>
+      <button data-i="lui">lui</button>
+      <button data-i="auipc">auipc</button>
     </div>
 
     <div class="explain">
@@ -124,7 +127,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 
     <figure>
       <div class="scroll">
-      <svg class="dp" viewBox="0 0 1060 610" role="img" aria-label="Single-cycle RISC-V datapath: PC register feeds instruction memory, instruction fields feed the register file and extender, the ALU computes from srca and srcb, and the result mux writes aluresult, readdata, or pcplus4 back to the register file. Two adders compute pcplus4 and pctarget, and the PC mux picks the next PC.">
+      <svg class="dp" viewBox="-20 0 1080 622" role="img" aria-label="Single-cycle RV32I datapath: PC register feeds instruction memory, instruction fields feed the register file and extender. srcamux picks rd1, pc or 0 for ALU input a, and srcbmux picks rd2 or immext for input b. The ALU result goes to data memory, to the result mux, and with bit 0 cleared back to the PC mux for jalr. The ALU sends zero, negative, overflow and carry flags to the controller. The PC mux picks pcplus4, pctarget or the jalr target.">
         <defs>
           <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr" d="M0 0L10 5L0 10z"/></marker>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arr-on" d="M0 0L10 5L0 10z"/></marker>
@@ -143,10 +146,14 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <path class="w" id="a3" d="M330 310H380"/>
         <path class="w" id="ext_in" d="M330 415H390"/>
         <path class="w" id="p4" d="M260 525H290"/>
-        <path class="w" id="p4mux" d="M290 525V565H10V260H30"/>
+        <path class="w" id="p4mux" d="M290 525V565H10V275H30"/>
         <path class="w" id="p4res" d="M290 525H920V330H940"/>
-        <path class="w" id="pctarget" d="M610 475H640V585H20V300H30"/>
-        <path class="w" id="srca" d="M500 230H630"/>
+        <path class="w" id="pctarget" d="M610 475H640V585H20V305H30"/>
+        <path class="w" id="jalrpc" d="M750 280V600H-5V245H30"/>
+        <path class="w" id="rd1" d="M500 230H570V222H585"/>
+        <path class="w" id="pc_a" d="M562 240H585"/>
+        <path class="w" id="zero_a" d="M572 258H585"/>
+        <path class="w" id="srca" d="M610 240H630"/>
         <path class="w" id="rd2" d="M500 300H560"/>
         <path class="w" id="writedata" d="M530 300V375H760V340H780"/>
         <path class="w" id="immext" d="M510 415H545V340H560"/>
@@ -166,10 +173,16 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <circle class="dot" cx="530" cy="300" r="3.2"/>
         <circle class="dot" cx="545" cy="415" r="3.2"/>
         <circle class="dot" cx="740" cy="280" r="3.2"/>
+        <circle class="dot" cx="750" cy="280" r="3.2"/>
 
-        <!-- PC mux -->
-        <polygon class="blk" points="30,240 60,252 60,308 30,320"/>
-        <text class="tp" x="34" y="264">0</text><text class="tp" x="34" y="304">1</text>
+        <!-- PC mux: input 2 drawn on top so the jalr loop crosses nothing -->
+        <polygon class="blk" points="30,225 60,237 60,323 30,335"/>
+        <text class="tp" x="34" y="249">2</text><text class="tp" x="34" y="279">0</text><text class="tp" x="34" y="309">1</text>
+        <!-- srca mux -->
+        <polygon class="blk" points="585,208 610,218 610,262 585,272"/>
+        <text class="tp" x="588" y="226">0</text><text class="tp" x="588" y="244">1</text><text class="tp" x="588" y="262">2</text>
+        <text class="tw" x="558" y="244" text-anchor="end">pc</text>
+        <text class="tw" x="568" y="262" text-anchor="end">0</text>
         <!-- PC register -->
         <rect class="blk" x="90" y="250" width="60" height="60" rx="3"/>
         <text class="t" x="120" y="278" text-anchor="middle">pcreg</text>
@@ -223,16 +236,18 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <text class="tp" x="943" y="274">0</text><text class="tp" x="943" y="304">1</text><text class="tp" x="943" y="334">2</text>
 
         <!-- control stubs -->
-        <path class="c" d="M45 222V244" marker-end="url(#ac)"/>
-        <text class="ct" id="v-pcsrc" x="45" y="216" text-anchor="middle">pcsrc</text>
+        <path class="c" d="M45 200V229" marker-end="url(#ac)"/>
+        <text class="ct" id="v-pcsrc" x="45" y="194" text-anchor="middle">pcsrc</text>
+        <path class="c" d="M597 150V211" marker-end="url(#ac)"/>
+        <text class="ct" id="v-alusrca" x="597" y="144" text-anchor="middle">alusrca</text>
         <path class="c" d="M440 168V188" marker-end="url(#ac)"/>
         <text class="ct" id="v-regwrite" x="440" y="162" text-anchor="middle">regwrite</text>
         <path class="c" d="M492 370V390" marker-end="url(#ac)"/>
         <text class="ct" id="v-immsrc" x="486" y="384" text-anchor="end">immsrc</text>
-        <path class="c" d="M575 262V284" marker-end="url(#ac)"/>
-        <text class="ct" id="v-alusrc" x="575" y="256" text-anchor="middle">alusrc</text>
+        <path class="c" d="M575 270V284" marker-end="url(#ac)"/>
+        <text class="ct" id="v-alusrcb" x="569" y="281" text-anchor="end">alusrcb</text>
         <path class="c" d="M655 186V215" marker-end="url(#ac)"/>
-        <text class="ct" id="v-alucontrol" x="655" y="180" text-anchor="middle">alucontrol</text>
+        <text class="ct" id="v-aluctrl" x="655" y="180" text-anchor="middle">aluctrl</text>
         <path class="c" d="M830 218V238" marker-end="url(#ac)" stroke-dasharray="4 3"/>
         <text class="ct" id="v-memwrite" x="830" y="212" text-anchor="middle">memwrite</text>
         <path class="c" d="M955 228V254" marker-end="url(#ac)"/>
@@ -244,7 +259,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <rect class="pin" x="720" y="275" width="10" height="10"/><text class="tw" x="716" y="268" text-anchor="middle">aluresult</text>
         <rect class="pin" x="695" y="370" width="10" height="10"/><text class="tw" x="700" y="395" text-anchor="middle">writedata</text>
         <rect class="pin" x="900" y="295" width="10" height="10"/><text class="tw" x="905" y="318" text-anchor="middle">readdata</text>
-        <rect class="pin" x="685" y="185" width="10" height="10"/><text class="tw" x="690" y="156" text-anchor="middle">zero</text>
+        <rect class="pin" x="685" y="185" width="10" height="10"/><text class="tw" x="690" y="156" text-anchor="middle">Z N V C</text>
 
         <!-- bus widths: slash + bit count -->
         <g>
@@ -271,7 +286,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
           <line class="bw" x1="396" y1="591" x2="404" y2="579"/><text class="bwt" x="400" y="603" text-anchor="middle">32</text>
           <line class="bw" x1="164" y1="384" x2="176" y2="376"/><text class="bwt" x="180" y="384">32</text>
           <line class="bw" x1="446" y1="476" x2="454" y2="464"/><text class="bwt" x="458" y="464">32</text>
-          <line class="bw" x1="684" y1="214" x2="696" y2="206"/><text class="bwt" x="700" y="214">1</text>
+          <line class="bw" x1="684" y1="214" x2="696" y2="206"/><text class="bwt" x="700" y="214">4</text>
         </g>
 
         <!-- wire names -->
@@ -281,7 +296,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <text class="ts" x="355" y="306" text-anchor="middle">[11:7]</text>
         <text class="ts" x="360" y="410" text-anchor="middle">[31:7]</text>
         <text class="ts" x="330" y="138" text-anchor="middle">op 7b · funct3 3b · funct7b5 1b → controller</text>
-        <text class="tw" x="565" y="224" text-anchor="middle">srca</text>
+        <text class="tw" x="400" y="614" text-anchor="middle">aluresult with bit 0 cleared (jalr target)</text>
         <text class="tw" x="610" y="314" text-anchor="middle">srcb</text>
         <text class="tw" x="525" y="409" text-anchor="middle">immext</text>
         <text class="tw" x="400" y="519" text-anchor="middle">pcplus4</text>
@@ -292,7 +307,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <text class="tw" x="990" y="294" text-anchor="middle">result</text>
       </svg>
       </div>
-      <figcaption>Squares mark the ports of <code>datapath.v</code>. Everything inside the dashed memories lives in the top level, so <code>pc</code>, <code>aluresult</code> and <code>writedata</code> leave the module and <code>instr</code> and <code>readdata</code> come back in. Blue arrows are the control inputs from <code>controller.v</code>. <code>memwrite</code> goes straight to dmem and never enters the datapath.</figcaption>
+      <figcaption>Squares mark the ports of <code>datapath.v</code>. Everything inside the dashed memories lives in the top level, so <code>pc</code>, <code>aluresult</code> and <code>writedata</code> leave the module and <code>instr</code> and <code>readdata</code> come back in. Blue arrows are the control inputs from <code>controller.v</code>. <code>memwrite</code> goes straight to dmem and never enters the datapath. The <code>pc</code> and <code>0</code> labels at <code>srcamux</code> are the same <code>pc</code> wire and a constant, drawn as labels to avoid crossing the regfile. Not drawn yet: the load-extend and store byte-enable logic for lb/lh/sb/sh (step 7).</figcaption>
     </figure>
   </div>
 
@@ -301,12 +316,13 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
     <div class="tbl"><table>
       <thead><tr><th>Group</th><th>Signals</th><th class="num">Bits</th></tr></thead>
       <tbody>
-        <tr><td>Input ports</td><td><code>clk</code> <code>rst</code> <code>pcsrc</code> <code>alusrc</code> <code>regwrite</code></td><td class="num">1 each</td></tr>
-        <tr><td></td><td><code>resultsrc</code></td><td class="num">2 <span class="muted">[1:0]</span></td></tr>
-        <tr><td></td><td><code>immsrc</code> <code>alucontrol</code></td><td class="num">3 <span class="muted">[2:0]</span></td></tr>
+        <tr><td>Input ports</td><td><code>clk</code> <code>rst</code> <code>alusrcb</code> <code>regwrite</code></td><td class="num">1 each</td></tr>
+        <tr><td></td><td><code>pcsrc</code> <code>alusrca</code> <code>resultsrc</code></td><td class="num">2 <span class="muted">[1:0]</span></td></tr>
+        <tr><td></td><td><code>immsrc</code></td><td class="num">3 <span class="muted">[2:0]</span></td></tr>
+        <tr><td></td><td><code>aluctrl</code></td><td class="num">4 <span class="muted">[3:0]</span></td></tr>
         <tr><td></td><td><code>instr</code> <code>readdata</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
         <tr><td>Output ports</td><td><code>pc</code> <code>aluresult</code> <code>writedata</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
-        <tr><td></td><td><code>zero</code></td><td class="num">1</td></tr>
+        <tr><td></td><td><code>zero</code> <code>negative</code> <code>overflow</code> <code>carry</code></td><td class="num">1 each</td></tr>
         <tr><td>Internal wires</td><td><code>pcnext</code> <code>pcplus4</code> <code>pctarget</code> <code>immext</code> <code>srca</code> <code>srcb</code> <code>result</code></td><td class="num">32 <span class="muted">[31:0]</span></td></tr>
         <tr><td>Slices of instr</td><td><code>instr[19:15]</code> <code>instr[24:20]</code> <code>instr[11:7]</code></td><td class="num">5 each</td></tr>
         <tr><td></td><td><code>instr[31:7]</code> into extender</td><td class="num">25</td></tr>
@@ -337,7 +353,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <thead><tr><th>Signal</th><th class="num">Bits</th><th>Value</th><th>Meaning</th></tr></thead>
         <tbody id="ctrlrows"></tbody>
       </table></div>
-      <p class="muted" style="font-size:13.5px">x means don't care. For beq the controller computes <code>pcsrc = branch &amp; zero</code>, and for jal it forces <code>pcsrc = 1</code>.</p>
+      <p class="muted" style="font-size:13.5px">x means don't care. For a branch the controller picks <code>pcsrc = 01</code> when the funct3 condition on the flags holds, else <code>00</code>. jal forces <code>01</code>, and jalr forces <code>10</code>.</p>
     </section>
 
     <section>
@@ -348,11 +364,12 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
           <tr><td>pcreg</td><td><code>flopr</code></td><td><code>pcnext → pc</code></td></tr>
           <tr><td>pcadd4</td><td>adder / <code>+</code></td><td><code>pc + 4 → pcplus4</code></td></tr>
           <tr><td>pcaddbranch</td><td>adder / <code>+</code></td><td><code>pc + immext → pctarget</code></td></tr>
-          <tr><td>pcmux</td><td><code>mux2</code></td><td>sel <code>pcsrc</code>: 0 <code>pcplus4</code>, 1 <code>pctarget</code></td></tr>
-          <tr><td>rf</td><td><code>regfile</code></td><td><code>rd1 → srca</code>, <code>rd2 → writedata</code>, <code>wd3 ← result</code></td></tr>
+          <tr><td>pcmux</td><td><code>mux3</code></td><td>sel <code>pcsrc</code>: 0 <code>pcplus4</code>, 1 <code>pctarget</code>, 2 <code>{aluresult[31:1], 1'b0}</code></td></tr>
+          <tr><td>rf</td><td><code>regfile</code></td><td><code>rd1 → srcamux</code>, <code>rd2 → writedata</code>, <code>wd3 ← result</code></td></tr>
           <tr><td>ext</td><td><code>extender</code></td><td><code>instr[31:7] → immext</code></td></tr>
-          <tr><td>srcbmux</td><td><code>mux2</code></td><td>sel <code>alusrc</code>: 0 <code>writedata</code>, 1 <code>immext</code></td></tr>
-          <tr><td>alu</td><td><code>alu</code></td><td><code>.F(alucontrol)</code>, <code>.out(aluresult)</code>, <code>.zero(zero)</code></td></tr>
+          <tr><td>srcamux</td><td><code>mux3</code></td><td>sel <code>alusrca</code>: 0 <code>rd1</code>, 1 <code>pc</code>, 2 <code>32'b0</code> → <code>srca</code></td></tr>
+          <tr><td>srcbmux</td><td><code>mux2</code></td><td>sel <code>alusrcb</code>: 0 <code>writedata</code>, 1 <code>immext</code></td></tr>
+          <tr><td>alu</td><td><code>alu</code></td><td><code>.F(aluctrl)</code>, <code>.out(aluresult)</code>, plus <code>zero</code> <code>negative</code> <code>overflow</code> <code>carry</code></td></tr>
           <tr><td>resultmux</td><td><code>mux3</code></td><td>sel <code>resultsrc</code>: 0 <code>aluresult</code>, 1 <code>readdata</code>, 2 <code>pcplus4</code></td></tr>
         </tbody>
       </table></div>
@@ -363,14 +380,14 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
     <section>
       <h2>Build it in this order</h2>
       <ol class="steps">
-        <li>Write the port list and declare the 7 internal wires: <code>pcnext pcplus4 pctarget immext srca srcb result</code>.
+        <li>Write the port list and declare the 8 internal wires: <code>pcnext pcplus4 pctarget immext rd1 srca srcb result</code>. <code>rd1</code> is new: the regfile output no longer goes straight to the ALU.
           <span class="chk">Check: <code>iverilog -Wall</code> compiles the empty module with no errors.</span></li>
-        <li>Close the next-PC loop: pcreg, pcadd4, pcaddbranch, pcmux.
+        <li>Close the next-PC loop: pcreg, pcadd4, pcaddbranch, pcmux (now a <code>mux3</code>).
           <span class="chk">Check: in a small testbench with <code>pcsrc = 0</code>, <code>pc</code> reads 0, 4, 8, 12 after reset.</span></li>
         <li>Add rf and ext, slicing <code>instr</code> as shown above.
           <span class="chk">Check: feed a known <code>instr</code> and confirm <code>a1</code>, <code>a2</code> and <code>a3</code> hold the right register numbers in the waveform.</span></li>
-        <li>Add srcbmux and alu.
-          <span class="chk">Check: preload two registers and confirm <code>aluresult</code> matches for both <code>alusrc</code> values.</span></li>
+        <li>Add srcamux, srcbmux and alu.
+          <span class="chk">Check: preload two registers and confirm <code>aluresult</code> for every <code>alusrca</code> and <code>alusrcb</code> value.</span></li>
         <li>Add resultmux and wire <code>result</code> back to <code>wd3</code>.
           <span class="chk">Check: with <code>regwrite = 1</code>, the register file gets written on the next rising edge.</span></li>
       </ol>
@@ -381,7 +398,8 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <li><code>writedata</code> is <code>rd2</code> itself, tapped before srcbmux. If you take it from <code>srcb</code>, every <code>sw</code> stores the address offset.</li>
         <li><code>pctarget</code> is <code>pc + immext</code>, not <code>pcplus4 + immext</code>. Branch offsets are relative to the branch instruction.</li>
         <li>Use your own port names when you instantiate: <code>alu</code> uses <code>F</code> and <code>out</code>, <code>flopr</code> uses <code>rst</code>, and <code>regfile</code> uses <code>we</code>.</li>
-        <li>resultmux assumes <code>mux3</code> takes a 2-bit <code>sel</code> with 00, 01, 10. Your current file has separate <code>sel0</code>/<code>sel1</code> bits and four inputs, so fix that first.</li>
+        <li>The jalr target is <code>rs1 + imm</code> with bit 0 forced to 0. The spec requires it, and an odd target would never line up with an instruction.</li>
+        <li>lui and auipc go through the ALU as add: <code>0 + imm</code> and <code>pc + imm</code>. The result mux still picks <code>aluresult</code>, so it stays 3 inputs.</li>
         <li>A wire you forget to declare becomes an implicit 1-bit net in Verilog. Put <code>`default_nettype none</code> at the top of the file and that turns into a compile error.</li>
       </ul>
     </section>
@@ -392,39 +410,51 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 const BASE = ["pcnext","pc","pc_t4","instr","bus","p4"];
 const I = {
   R:    { what:"add x5, x6, x7   →   rd ← rs1 op rs2",
-          why:"Both register reads feed the ALU. alusrc = 0 picks rd2, and the ALU result goes straight back to rd.",
-          on:["a1","a2","a3","srca","rd2","srcb","alures","alures_res","result","p4mux"],
-          c:{pcsrc:"0",regwrite:"1",immsrc:"xxx",alusrc:"0",alucontrol:"from funct3/funct7",memwrite:"0",resultsrc:"00"} },
+          why:"Both register reads feed the ALU. alusrca = 00 picks rd1, alusrcb = 0 picks rd2, and the ALU result goes straight back to rd.",
+          on:["a1","a2","a3","rd1","srca","rd2","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"00",regwrite:"1",immsrc:"xxx",alusrca:"00",alusrcb:"0",aluctrl:"{alt, funct3}",memwrite:"0",resultsrc:"00"} },
+  addi: { what:"addi x2, x0, 5   →   rd ← rs1 + imm",
+          why:"Same path as R-type, except alusrcb = 1 takes the I-type immediate instead of rd2.",
+          on:["a1","a3","ext_in","immext","rd1","srca","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"00",regwrite:"1",immsrc:"000",alusrca:"00",alusrcb:"1",aluctrl:"{alt, funct3}",memwrite:"0",resultsrc:"00"} },
   lw:   { what:"lw x6, -4(x9)   →   rd ← mem[rs1 + imm]",
           why:"The ALU adds rs1 and the I-type immediate to form an address. Data memory's readdata is what gets written back.",
-          on:["a1","a3","ext_in","immext","srca","srcb","alures","readdata","result","p4mux"],
-          c:{pcsrc:"0",regwrite:"1",immsrc:"000",alusrc:"1",alucontrol:"000 (add)",memwrite:"0",resultsrc:"01"} },
+          on:["a1","a3","ext_in","immext","rd1","srca","srcb","alures","readdata","result","p4mux"],
+          c:{pcsrc:"00",regwrite:"1",immsrc:"000",alusrca:"00",alusrcb:"1",aluctrl:"0000 (add)",memwrite:"0",resultsrc:"01"} },
   sw:   { what:"sw x6, 8(x9)   →   mem[rs1 + imm] ← rs2",
           why:"Same address math as lw with an S-type immediate. rd2 leaves the module as writedata. Nothing gets written to the register file.",
-          on:["a1","a2","ext_in","immext","srca","rd2","writedata","srcb","alures","p4mux"],
-          c:{pcsrc:"0",regwrite:"0",immsrc:"001",alusrc:"1",alucontrol:"000 (add)",memwrite:"1",resultsrc:"xx"} },
-  beq:  { what:"beq x4, x4, L7   →   if rs1 == rs2: pc ← pc + imm",
-          why:"The ALU subtracts rs2 from rs1. zero goes to the controller, which picks pctarget when the registers are equal and pcplus4 otherwise.",
-          on:["a1","a2","ext_in","srca","rd2","srcb","zero","immext_t","pc_tt","pctarget","p4mux"],
-          c:{pcsrc:"zero",regwrite:"0",immsrc:"010",alusrc:"0",alucontrol:"001 (sub)",memwrite:"0",resultsrc:"xx"} },
-  addi: { what:"addi x2, x0, 5   →   rd ← rs1 + imm",
-          why:"This uses the same path as lw, except resultsrc = 00 takes the ALU result instead of memory.",
-          on:["a1","a3","ext_in","immext","srca","srcb","alures","alures_res","result","p4mux"],
-          c:{pcsrc:"0",regwrite:"1",immsrc:"000",alusrc:"1",alucontrol:"000 (add)",memwrite:"0",resultsrc:"00"} },
-  jal:  { what:"jal x0, L1   →   rd ← pc + 4,  pc ← pc + imm",
+          on:["a1","a2","ext_in","immext","rd1","srca","rd2","writedata","srcb","alures","p4mux"],
+          c:{pcsrc:"00",regwrite:"0",immsrc:"001",alusrca:"00",alusrcb:"1",aluctrl:"0000 (add)",memwrite:"1",resultsrc:"xx"} },
+  br:   { what:"blt x4, x5, L7   →   if rs1 < rs2: pc ← pc + imm",
+          why:"All six branches run the ALU as rs1 − rs2. The four flags go to the controller, which checks the condition funct3 names and picks pctarget if it holds, pcplus4 if not.",
+          on:["a1","a2","ext_in","rd1","srca","rd2","srcb","zero","immext_t","pc_tt","pctarget","p4mux"],
+          c:{pcsrc:"00 or 01",regwrite:"0",immsrc:"010",alusrca:"00",alusrcb:"0",aluctrl:"1000 (sub)",memwrite:"0",resultsrc:"xx"} },
+  jal:  { what:"jal x1, L1   →   rd ← pc + 4,  pc ← pc + imm",
           why:"The ALU sits idle. pcaddbranch computes the jump target, and pcplus4 goes through the result mux into rd as the return address.",
           on:["a3","ext_in","immext_t","pc_tt","pctarget","p4res","result"],
-          c:{pcsrc:"1",regwrite:"1",immsrc:"011",alusrc:"x",alucontrol:"xxx",memwrite:"0",resultsrc:"10"} },
+          c:{pcsrc:"01",regwrite:"1",immsrc:"011",alusrca:"xx",alusrcb:"x",aluctrl:"xxxx",memwrite:"0",resultsrc:"10"} },
+  jalr: { what:"jalr x0, 0(x1)   →   rd ← pc + 4,  pc ← (rs1 + imm) & ~1",
+          why:"The target depends on a register, so pcaddbranch can't compute it. The ALU adds rs1 and the immediate, bit 0 is cleared, and pcmux input 2 takes it. rd still gets pcplus4, like jal.",
+          on:["a1","a3","ext_in","immext","rd1","srca","srcb","alures","jalrpc","p4res","result"],
+          c:{pcsrc:"10",regwrite:"1",immsrc:"000",alusrca:"00",alusrcb:"1",aluctrl:"0000 (add)",memwrite:"0",resultsrc:"10"} },
+  lui:  { what:"lui x5, 0x12345   →   rd ← imm << 12",
+          why:"alusrca = 10 feeds 0 into the ALU, so add gives 0 + imm. The U-type extender has already shifted the immediate into the top 20 bits.",
+          on:["a3","ext_in","immext","zero_a","srca","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"00",regwrite:"1",immsrc:"100",alusrca:"10",alusrcb:"1",aluctrl:"0000 (add)",memwrite:"0",resultsrc:"00"} },
+  auipc:{ what:"auipc x5, 0x1   →   rd ← pc + (imm << 12)",
+          why:"alusrca = 01 feeds pc into the ALU. Same as lui otherwise. Used with jalr to reach any 32-bit address relative to pc.",
+          on:["a3","ext_in","immext","pc_a","srca","srcb","alures","alures_res","result","p4mux"],
+          c:{pcsrc:"00",regwrite:"1",immsrc:"100",alusrca:"01",alusrcb:"1",aluctrl:"0000 (add)",memwrite:"0",resultsrc:"00"} },
 };
 const MEANING = {
-  pcsrc:"0 = pcplus4, 1 = pctarget", regwrite:"write result into rd at the clock edge",
-  immsrc:"000 I, 001 S, 010 B, 011 J, 100 U", alusrc:"0 = rd2, 1 = immext",
-  alucontrol:"000 add, 001 sub, 010 and, 011 or, 101 slt", memwrite:"to dmem, not the datapath",
+  pcsrc:"00 pcplus4, 01 pctarget, 10 ALU (jalr)", regwrite:"write result into rd at the clock edge",
+  immsrc:"000 I, 001 S, 010 B, 011 J, 100 U", alusrca:"00 rd1, 01 pc, 10 zero", alusrcb:"0 = rd2, 1 = immext",
+  aluctrl:"4-bit F code, see the ALU map", memwrite:"to dmem, not the datapath",
   resultsrc:"00 aluresult, 01 readdata, 10 pcplus4"
 };
-const BITS = { pcsrc:1, regwrite:1, immsrc:3, alusrc:1, alucontrol:3, memwrite:1, resultsrc:2 };
+const BITS = { pcsrc:2, regwrite:1, immsrc:3, alusrca:2, alusrcb:1, aluctrl:4, memwrite:1, resultsrc:2 };
 const RANGE = s => BITS[s] > 1 ? `[${BITS[s]-1}:0]` : "";
-const ENDS = new Set(["pcnext","pc","pc_t4","pc_tt","a1","a2","a3","ext_in","p4mux","p4res","pctarget","srca","rd2","writedata","immext","immext_t","srcb","alures","alures_res","readdata","result","zero"]);
+const ENDS = new Set(["pcnext","pc","pc_t4","pc_tt","a1","a2","a3","ext_in","p4mux","p4res","pctarget","jalrpc","rd1","pc_a","zero_a","srca","rd2","writedata","immext","immext_t","srcb","alures","alures_res","readdata","result","zero"]);
 function show(k) {
   const d = I[k], on = new Set([...BASE, ...d.on]);
   document.querySelectorAll("svg .w[id]").forEach(p => {
@@ -436,7 +466,7 @@ function show(k) {
     const t = document.getElementById("v-" + s);
     if (t) t.textContent = s + RANGE(s) + " = " + v;
   }
-  document.getElementById("v-alucontrol").textContent = "alucontrol[2:0] = " + (k === "R" ? "funct" : d.c.alucontrol.split(" ")[0]);
+  document.getElementById("v-aluctrl").textContent = "aluctrl[3:0] = " + d.c.aluctrl.split(" (")[0];
   document.getElementById("what").textContent = d.what;
   document.getElementById("why").textContent = d.why;
   document.getElementById("ctrlrows").innerHTML = Object.entries(d.c).map(([s, v]) =>

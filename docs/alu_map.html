@@ -1,0 +1,421 @@
+<title>RV32I ALU Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: same system as datapath_map.html. Op picker, ALU schematic, then a calculator and reference tables. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2230; --muted: #667085; --line: #c9d0dc;
+  --wire: #3a4456; --ctrl: #2563c9; --hot: #d96b12; --hot-soft: #fbe9da; --ext: #eef1f6;
+  --bad: #c0362c;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --display: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; --bad: #ff7b6e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e3e8f0; --muted: #98a2b3; --line: #344052;
+  --wire: #aab4c4; --ctrl: #6ea2ff; --hot: #ff9a45; --hot-soft: #3a2a1c; --ext: #1f2631; --bad: #ff7b6e; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.9rem; font-weight: 600; }
+h2 { font-size: 1.2rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+.muted { color: var(--muted); }
+header { display: flex; flex-direction: column; gap: 6px; }
+
+.picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.picker span { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.picker button { font: 500 14px var(--mono); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+.picker button:hover { border-color: var(--hot); }
+.picker button[aria-pressed="true"] { background: var(--hot); border-color: var(--hot); color: #fff; }
+.picker button:focus-visible, .calc input:focus-visible { outline: 2px solid var(--ctrl); outline-offset: 2px; }
+
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.scroll { overflow-x: auto; }
+figure { margin: 0; }
+svg.dp { display: block; width: 100%; min-width: 820px; height: auto; color: var(--wire); }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.explain { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.explain > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.explain .what { font-family: var(--mono); font-size: 14px; color: var(--hot); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2.5px solid; vertical-align: middle; margin-right: 6px; }
+
+/* SVG parts */
+.w { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .45; transition: stroke .15s, opacity .15s; }
+.w.on { stroke: var(--hot); opacity: 1; stroke-width: 2.6; }
+.w.todo { stroke-dasharray: 4 3; }
+.blk { fill: var(--panel); stroke: currentColor; stroke-width: 1.6; }
+.cblk { fill: var(--panel); stroke: var(--ctrl); stroke-width: 1.4; }
+.dot { fill: currentColor; }
+.t { fill: var(--fg); font: 600 13px var(--sans); }
+.ts { fill: var(--muted); font: 400 10.5px var(--mono); }
+.tw { fill: var(--fg); font: 500 11px var(--mono); }
+.tc { fill: var(--muted); font: 500 10.5px var(--mono); }
+.tc.on { fill: var(--hot); font-weight: 600; }
+.c { stroke: var(--ctrl); stroke-width: 1.6; fill: none; opacity: .45; }
+.c.on { opacity: 1; stroke-width: 2.4; }
+.ct { fill: var(--ctrl); font: 500 11px var(--mono); }
+.arr { fill: currentColor; } .arr-on { fill: var(--hot); } .arr-c { fill: var(--ctrl); }
+
+/* Calculator */
+.calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; align-items: start; }
+.calc .ins { display: flex; flex-direction: column; gap: 10px; }
+.calc label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.calc input { font: 500 15px var(--mono); padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.calc input[aria-invalid="true"] { border-color: var(--bad); }
+.calc .err { color: var(--bad); font-size: 13px; min-height: 1.2em; }
+dl.vals { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-family: var(--mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+dl.vals dt { color: var(--muted); }
+dl.vals dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+dl.vals dd.out { color: var(--hot); font-weight: 600; }
+.flags { display: flex; gap: 8px; flex-wrap: wrap; }
+.flag { font: 600 13px var(--mono); padding: 3px 9px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); }
+.flag.set { background: var(--hot-soft); border-color: var(--hot); color: var(--fg); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+td code { white-space: nowrap; }
+tbody tr { cursor: pointer; }
+tbody tr.hl td { background: var(--hot-soft); }
+ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 640px) { .explain { grid-template-columns: 1fr; } h1 { font-size: 1.5rem; } }
+@media (prefers-reduced-motion: reduce) { .w { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>RV32I ALU Map</h1>
+    <p class="muted">The 4-bit <code>alu.v</code> from step 1, with the encoding <code>aluctrl = {alt bit, funct3}</code>. Pick an operation to see which parts of the ALU produce its result. The calculator below gives the expected values for <code>alu_tb.v</code>.</p>
+  </header>
+
+  <div class="stage">
+    <div class="picker" role="group" aria-label="ALU operation" id="picker"></div>
+
+    <div class="explain">
+      <div>
+        <div class="what" id="what"></div>
+        <p id="why"></p>
+      </div>
+      <div class="legend">
+        <span><i style="border-color:var(--hot)"></i>used by this operation</span>
+        <span><i style="border-color:var(--ctrl)"></i>control</span>
+        <span><i style="border-color:var(--wire);border-top-style:dashed"></i>flag outputs still to add</span>
+      </div>
+    </div>
+
+    <figure>
+      <div class="scroll">
+      <svg class="dp" viewBox="0 0 960 580" role="img" aria-label="ALU internals. Input a goes to the adder, the logic unit and the shifter. Input b goes straight or inverted through a mux into the adder, and also to the logic unit and the shifter. The subtract signal picks inverted b and sets carry-in. The adder's sum feeds the output mux and a compare block that makes slt and sltu. An output mux selected by F picks one of nine results. A zero detector on the output makes the zero flag.">
+        <defs>
+          <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr" d="M0 0L10 5L0 10z"/></marker>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="arr-on" d="M0 0L10 5L0 10z"/></marker>
+          <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="arr-c" d="M0 0L10 5L0 10z"/></marker>
+        </defs>
+
+        <!-- input a -->
+        <text class="tw" x="40" y="93">a</text>
+        <path class="w" id="a_in" data-arr="1" d="M40 100H300"/>
+        <path class="w" id="a_bus1" d="M70 100V300"/>
+        <path class="w" id="a_bus2" d="M70 300V460"/>
+        <path class="w" id="a_log" data-arr="1" d="M70 300H300"/>
+        <path class="w" id="a_sh" data-arr="1" d="M70 460H300"/>
+        <circle class="dot" cx="70" cy="100" r="3"/>
+        <circle class="dot" cx="70" cy="300" r="3"/>
+
+        <!-- input b -->
+        <text class="tw" x="40" y="133">b</text>
+        <path class="w" id="b_in" data-arr="1" d="M40 140H230"/>
+        <path class="w" id="b_bus1" d="M110 140V170"/>
+        <path class="w" id="b_bus2" d="M110 170V350"/>
+        <path class="w" id="b_bus3" d="M110 350V500"/>
+        <path class="w" id="b_inv" d="M110 170H138"/>
+        <path class="w" id="b_invout" data-arr="1" d="M164 170H230"/>
+        <path class="w" id="b_log" data-arr="1" d="M110 350H300"/>
+        <path class="w" id="b_sh" data-arr="1" d="M110 500H300"/>
+        <circle class="dot" cx="110" cy="140" r="3"/>
+        <circle class="dot" cx="110" cy="170" r="3"/>
+        <circle class="dot" cx="110" cy="350" r="3"/>
+        <polygon class="blk" points="138,160 138,180 156,170"/>
+        <circle class="blk" cx="160" cy="170" r="3.5"/>
+        <text class="ts" x="196" y="164" text-anchor="middle">~b</text>
+        <text class="ts" x="250" y="493" text-anchor="middle">b[4:0]</text>
+
+        <!-- b mux -->
+        <polygon class="blk" points="230,125 260,135 260,175 230,185"/>
+        <text class="ts" x="236" y="144">0</text>
+        <text class="ts" x="236" y="174">1</text>
+        <path class="w" id="bb" data-arr="1" d="M260 155H300"/>
+        <text class="ts" x="280" y="149" text-anchor="middle">bb</text>
+
+        <!-- subtract control -->
+        <rect class="cblk" x="150" y="222" width="125" height="38" rx="4"/>
+        <text class="ct" x="212" y="238" text-anchor="middle">subtract</text>
+        <text class="ts" x="212" y="252" text-anchor="middle">sub · slt · sltu</text>
+        <path class="c" id="c_sel" d="M245 222V184" marker-end="url(#ac)"/>
+        <path class="c" id="c_cin" d="M275 241H330V173" marker-end="url(#ac)"/>
+        <text class="ct" x="336" y="196">cin</text>
+
+        <!-- adder -->
+        <rect class="blk" x="300" y="80" width="100" height="90" rx="4"/>
+        <text class="t" x="350" y="120" text-anchor="middle">adder</text>
+        <text class="ts" x="350" y="136" text-anchor="middle">a + bb + cin</text>
+        <path class="w" id="sum1" d="M400 110H440"/>
+        <path class="w" id="sum2" data-arr="1" d="M440 110H620"/>
+        <path class="w" id="sum_cmp" data-arr="1" d="M440 110V175H470"/>
+        <circle class="dot" cx="440" cy="110" r="3"/>
+        <text class="ts" x="420" y="103" text-anchor="middle">sum</text>
+        <path class="w" id="cout" data-arr="1" d="M385 170V215H470"/>
+        <text class="ts" x="420" y="209" text-anchor="middle">cout</text>
+
+        <!-- compare -->
+        <rect class="blk" x="470" y="150" width="90" height="80" rx="4"/>
+        <text class="t" x="515" y="186" text-anchor="middle">compare</text>
+        <text class="ts" x="515" y="202" text-anchor="middle">+ a[31], b[31]</text>
+        <path class="w" id="slt" data-arr="1" d="M560 160H620"/>
+        <path class="w" id="sltu" data-arr="1" d="M560 210H620"/>
+        <text class="ts" x="566" y="153">slt</text>
+        <text class="ts" x="566" y="203">sltu</text>
+        <path class="w todo" id="f_n" d="M490 230V256"/>
+        <path class="w todo" id="f_v" d="M515 230V256"/>
+        <path class="w todo" id="f_c" d="M540 230V256"/>
+        <text class="tw" x="490" y="270" text-anchor="middle">N</text>
+        <text class="tw" x="515" y="270" text-anchor="middle">V</text>
+        <text class="tw" x="540" y="270" text-anchor="middle">C</text>
+
+        <!-- logic -->
+        <rect class="blk" x="300" y="270" width="100" height="120" rx="4"/>
+        <text class="t" x="350" y="334" text-anchor="middle">logic</text>
+        <path class="w" id="o_and" data-arr="1" d="M400 290H620"/>
+        <path class="w" id="o_or" data-arr="1" d="M400 330H620"/>
+        <path class="w" id="o_xor" data-arr="1" d="M400 370H620"/>
+        <text class="ts" x="408" y="284">a &amp; b</text>
+        <text class="ts" x="408" y="324">a | b</text>
+        <text class="ts" x="408" y="364">a ^ b</text>
+
+        <!-- shifter -->
+        <rect class="blk" x="300" y="420" width="100" height="120" rx="4"/>
+        <text class="t" x="350" y="476" text-anchor="middle">shifter</text>
+        <text class="ts" x="350" y="492" text-anchor="middle">a by b[4:0]</text>
+        <path class="w" id="o_sll" data-arr="1" d="M400 440H620"/>
+        <path class="w" id="o_srl" data-arr="1" d="M400 480H620"/>
+        <path class="w" id="o_sra" data-arr="1" d="M400 520H620"/>
+        <text class="ts" x="408" y="434">&lt;&lt; zero fill</text>
+        <text class="ts" x="408" y="474">&gt;&gt; zero fill</text>
+        <text class="ts" x="408" y="514">&gt;&gt;&gt; sign fill</text>
+
+        <!-- output mux, codes at each input -->
+        <polygon class="blk" points="620,70 660,95 660,525 620,550"/>
+        <text class="tc" data-k="add sub" x="612" y="103" text-anchor="end">0000 · 1000</text>
+        <text class="tc" data-k="slt" x="612" y="153" text-anchor="end">0010</text>
+        <text class="tc" data-k="sltu" x="612" y="203" text-anchor="end">0011</text>
+        <text class="tc" data-k="and" x="612" y="284" text-anchor="end">0111</text>
+        <text class="tc" data-k="or" x="612" y="324" text-anchor="end">0110</text>
+        <text class="tc" data-k="xor" x="612" y="364" text-anchor="end">0100</text>
+        <text class="tc" data-k="sll" x="612" y="434" text-anchor="end">0001</text>
+        <text class="tc" data-k="srl" x="612" y="474" text-anchor="end">0101</text>
+        <text class="tc" data-k="sra" x="612" y="514" text-anchor="end">1101</text>
+        <path class="c on" d="M640 28V80" marker-end="url(#ac)"/>
+        <text class="ct" x="648" y="36">F[3:0] = aluctrl</text>
+
+        <!-- out + zero -->
+        <path class="w on" id="out" d="M660 310H880"/>
+        <text class="tw" x="886" y="314">out</text>
+        <circle class="dot" cx="720" cy="310" r="3"/>
+        <path class="w on" id="z_in" data-arr="1" d="M720 310V380H760"/>
+        <rect class="blk" x="760" y="360" width="70" height="40" rx="4"/>
+        <text class="t" x="795" y="385" text-anchor="middle">== 0</text>
+        <path class="w on" id="z_out" d="M830 380H880"/>
+        <text class="tw" x="886" y="384">Z</text>
+        <text class="ts" x="760" y="430">Z, N, V, C go to the</text>
+        <text class="ts" x="760" y="445">controller for branches</text>
+      </svg>
+      </div>
+      <figcaption>Every block computes all the time; the output mux only chooses which result leaves. add and sub share the adder's sum. slt and sltu reuse the adder in subtract mode and read the sign, overflow and carry out of it.</figcaption>
+    </figure>
+  </div>
+
+  <section>
+    <h2>Calculator</h2>
+    <p class="muted">Type values as hex (<code>0x…</code>) or decimal (negative is fine). Picking an operation loads an example worth putting in your testbench.</p>
+    <div class="stage calc">
+      <div class="ins">
+        <label for="in_a">a<input id="in_a" spellcheck="false" autocomplete="off"></label>
+        <label for="in_b">b<input id="in_b" spellcheck="false" autocomplete="off"></label>
+        <div class="err" id="err" role="status"></div>
+      </div>
+      <dl class="vals" id="vals"></dl>
+      <div class="ins">
+        <dl class="vals" id="outv"></dl>
+        <div class="flags" id="flags"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid2">
+    <section>
+      <h2>Encoding</h2>
+      <div class="tbl"><table>
+        <thead><tr><th>aluctrl</th><th>op</th><th>Used by</th></tr></thead>
+        <tbody id="enc"></tbody>
+      </table></div>
+    </section>
+    <section>
+      <h2>Things that bite</h2>
+      <ul class="gotchas">
+        <li><b>Subtract is its own signal now.</b> In the old 3-bit encoding <code>F[0]</code> meant subtract. Now <code>F[0]</code> is <code>funct3[0]</code>, which is 1 for sll. Anything that used <code>F[0]</code> (the b inverter, cin, the overflow formula) must use <code>subtract</code>.</li>
+        <li><b>Shift by <code>b[4:0]</code>, not <code>b</code>.</b> srai's immediate has bit 10 set (that's how it differs from srli), so shifting by all of b would shift by 1024 or more.</li>
+        <li><b>sra needs a signed operand, alone.</b> Verilog takes signedness from the operands. Mix <code>$signed(a)</code> with anything unsigned in the same expression and <code>&gt;&gt;&gt;</code> quietly becomes a logical shift.</li>
+        <li><b>sltu is <code>~cout</code>.</b> In subtract mode, cout = 1 means a ≥ b unsigned (no borrow). Connect the adder's <code>cout</code> port.</li>
+        <li><b>Branches use sub (1000) and read the flags.</b> The output value is ignored. blt checks N ^ V, the same test slt makes.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+
+<script>
+const BASE_SUB = ["a_in","b_bus1","b_inv","b_invout","bb","c_sel","c_cin"];
+const LOGIC = ["a_bus1","a_log","b_bus1","b_bus2","b_log"];
+const SHIFT = ["a_bus1","a_bus2","a_sh","b_bus1","b_bus2","b_bus3","b_sh"];
+const OPS = [
+  { k:"add",  code:"0000", what:"out = a + b", why:"b passes straight through the b mux and cin = 0. The adder's sum is the result.",
+    on:["a_in","b_in","bb","sum1","sum2"], ex:[15, 27],
+    used:"add, addi, loads, stores, lui, auipc, jalr" },
+  { k:"sub",  code:"1000", what:"out = a + ~b + 1 = a − b", why:"subtract picks ~b and sets cin = 1, which is two's-complement negation of b. Branches use this op and read the flags.",
+    on:[...BASE_SUB,"sum1","sum2","f_n","f_v","f_c"], ex:[5, 20],
+    used:"sub, all six branches" },
+  { k:"sll",  code:"0001", what:"out = a << b[4:0]", why:"Shift a left, filling with zeros. Only the low 5 bits of b count.",
+    on:[...SHIFT,"o_sll"], ex:[1, 33],
+    used:"sll, slli" },
+  { k:"slt",  code:"0010", what:"out = (a < b signed) ? 1 : 0", why:"Run the adder in subtract mode. a < b when the sign of the difference is wrong-way, i.e. sum[31] ^ overflow.",
+    on:[...BASE_SUB,"sum1","sum_cmp","slt"], ex:[0xFFFFFFFB, 2],
+    used:"slt, slti" },
+  { k:"sltu", code:"0011", what:"out = (a < b unsigned) ? 1 : 0", why:"Subtract mode again. With no carry out, the subtraction borrowed, so a < b. The result is ~cout.",
+    on:[...BASE_SUB,"cout","sltu"], ex:[0xFFFFFFFF, 1],
+    used:"sltu, sltiu" },
+  { k:"xor",  code:"0100", what:"out = a ^ b", why:"Bitwise, from the logic block. The adder still runs, but the mux ignores it.",
+    on:[...LOGIC,"o_xor"], ex:[0xAAAA5555, 0xFFFF0000],
+    used:"xor, xori" },
+  { k:"srl",  code:"0101", what:"out = a >> b[4:0]", why:"Shift right, filling with zeros.",
+    on:[...SHIFT,"o_srl"], ex:[0x80000000, 4],
+    used:"srl, srli" },
+  { k:"sra",  code:"1101", what:"out = a >>> b[4:0]", why:"Shift right, filling with copies of a[31]. Same funct3 as srl; the alt bit (funct7 bit 5) tells them apart.",
+    on:[...SHIFT,"o_sra"], ex:[0x80000000, 4],
+    used:"sra, srai" },
+  { k:"or",   code:"0110", what:"out = a | b", why:"Bitwise, from the logic block.",
+    on:[...LOGIC,"o_or"], ex:[0xAAAA5555, 0xFFFF0000],
+    used:"or, ori" },
+  { k:"and",  code:"0111", what:"out = a & b", why:"Bitwise, from the logic block.",
+    on:[...LOGIC,"o_and"], ex:[0xAAAA5555, 0xFFFF0000],
+    used:"and, andi" },
+];
+const SUBOPS = new Set(["sub","slt","sltu"]);
+let cur = OPS[0];
+
+const hex = v => "0x" + (v >>> 0).toString(16).toUpperCase().padStart(8, "0");
+const sdec = v => String(v | 0);
+
+function parse(s) {
+  s = s.trim().replace(/_/g, "");
+  if (/^-?0x[0-9a-f]+$/i.test(s) || /^-?\d+$/.test(s)) {
+    const neg = s.startsWith("-"); const n = Number(neg ? s.slice(1) : s);
+    if (!Number.isFinite(n) || n > 0xFFFFFFFF) return null;
+    return (neg ? -n : n) >>> 0;
+  }
+  return null;
+}
+
+function alu(op, a, b) {
+  const sub = SUBOPS.has(op.k);
+  const bb = (sub ? ~b : b) >>> 0, cin = sub ? 1 : 0;
+  const full = a + bb + cin, sum = full >>> 0, cout = full > 0xFFFFFFFF ? 1 : 0;
+  const a31 = a >>> 31, b31 = b >>> 31, s31 = sum >>> 31;
+  const ovf = ((sub ^ a31 ^ b31) ^ 1) & (a31 ^ s31);
+  const sh = b & 31;
+  const out = ({
+    add: sum, sub: sum, slt: s31 ^ ovf, sltu: cout ^ 1,
+    and: a & b, or: a | b, xor: a ^ b,
+    sll: a << sh, srl: a >>> sh, sra: (a | 0) >> sh,
+  })[op.k] >>> 0;
+  return { bb, cin, sum, cout, out, sh, Z: out === 0 ? 1 : 0, N: s31, V: ovf, C: cout };
+}
+
+function calc() {
+  const ia = document.getElementById("in_a"), ib = document.getElementById("in_b");
+  const a = parse(ia.value), b = parse(ib.value);
+  ia.setAttribute("aria-invalid", a === null); ib.setAttribute("aria-invalid", b === null);
+  const err = document.getElementById("err");
+  if (a === null || b === null) { err.textContent = "Enter a 32-bit value as 0x… hex or decimal."; return; }
+  err.textContent = "";
+  const r = alu(cur, a, b);
+  const isShift = ["sll","srl","sra"].includes(cur.k);
+  document.getElementById("vals").innerHTML =
+    `<dt>a</dt><dd>${hex(a)} (${sdec(a)})</dd>` +
+    `<dt>b</dt><dd>${hex(b)} (${sdec(b)})</dd>` +
+    `<dt>bb</dt><dd>${hex(r.bb)}</dd>` +
+    `<dt>cin</dt><dd>${r.cin}</dd>` +
+    `<dt>sum</dt><dd>${hex(r.sum)}</dd>` +
+    `<dt>cout</dt><dd>${r.cout}</dd>` +
+    (isShift ? `<dt>b[4:0]</dt><dd>${r.sh}</dd>` : "");
+  document.getElementById("outv").innerHTML =
+    `<dt>F</dt><dd>4'b${cur.code} (${cur.k})</dd>` +
+    `<dt>out</dt><dd class="out">${hex(r.out)}</dd>` +
+    `<dt></dt><dd class="muted">signed ${sdec(r.out)}</dd>`;
+  document.getElementById("flags").innerHTML = ["Z","N","V","C"]
+    .map(f => `<span class="flag${r[f] ? " set" : ""}" title="${f} = ${r[f]}">${f}=${r[f]}</span>`).join("");
+}
+
+function show(op, loadExample) {
+  cur = op;
+  const on = new Set(op.on);
+  document.querySelectorAll("svg .w[id]").forEach(p => {
+    if (["out","z_in","z_out"].includes(p.id)) return;
+    const hot = on.has(p.id);
+    p.classList.toggle("on", hot);
+    if (p.dataset.arr) p.setAttribute("marker-end", hot ? "url(#ah)" : "url(#a)");
+  });
+  document.querySelectorAll("svg .c[id]").forEach(p => p.classList.toggle("on", on.has(p.id)));
+  document.querySelectorAll("svg .tc").forEach(t => t.classList.toggle("on", t.dataset.k.split(" ").includes(op.k)));
+  document.querySelectorAll("#picker button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === op.k));
+  document.querySelectorAll("#enc tr").forEach(r => r.classList.toggle("hl", r.dataset.k === op.k));
+  document.getElementById("what").textContent = `${op.k}  (${op.code})   →   ${op.what}`;
+  document.getElementById("why").textContent = op.why;
+  if (loadExample) {
+    document.getElementById("in_a").value = hex(op.ex[0]);
+    document.getElementById("in_b").value = op.ex[1] < 64 ? String(op.ex[1]) : hex(op.ex[1]);
+  }
+  calc();
+}
+
+const picker = document.getElementById("picker");
+picker.innerHTML = "<span>Operation</span>";
+const enc = document.getElementById("enc");
+OPS.forEach(op => {
+  const b = document.createElement("button");
+  b.dataset.k = op.k; b.textContent = op.k;
+  b.addEventListener("click", () => show(op, true));
+  picker.appendChild(b);
+  const tr = document.createElement("tr");
+  tr.dataset.k = op.k;
+  tr.innerHTML = `<td><code>${op.code}</code></td><td><code>${op.k}</code></td><td>${op.used}</td>`;
+  tr.addEventListener("click", () => show(op, true));
+  enc.appendChild(tr);
+});
+document.querySelectorAll("svg .w[data-arr]").forEach(p => p.setAttribute("marker-end", "url(#a)"));
+document.querySelectorAll("svg .w.on[data-arr]").forEach(p => p.setAttribute("marker-end", "url(#ah)"));
+["in_a","in_b"].forEach(id => document.getElementById(id).addEventListener("input", calc));
+show(OPS[0], true);
+</script>

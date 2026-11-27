@@ -31,8 +31,9 @@ code, .mono { font-family: var(--mono); font-size: 0.88em; }
 .muted { color: var(--muted); }
 header { display: flex; flex-direction: column; gap: 8px; }
 
+.pickers { display: flex; flex-direction: column; gap: 8px; }
 .picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.picker .lbl { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.picker .lbl { min-width: 7.5em; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
 .picker button, .zero button { font: 500 14px var(--mono); padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--panel); color: var(--fg); cursor: pointer; }
 .picker button:hover, .zero button:hover { border-color: var(--hot); }
@@ -44,7 +45,7 @@ header { display: flex; flex-direction: column; gap: 8px; }
 .explain { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
 .explain .what { font-family: var(--mono); font-size: 14px; color: var(--hot); }
 .explain p { margin-top: 4px; }
-.zero { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.zero { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .zero button[aria-pressed="true"] { border-color: var(--ctrl); color: var(--ctrl); }
 .scroll { overflow-x: auto; }
 figure { margin: 0; }
@@ -99,23 +100,51 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 <div class="wrap">
 <header>
   <h1>RV32I Controller Map</h1>
-  <p>The controller reads three fields of the instruction and the ALU's <code>zero</code> flag, and produces every control signal the datapath needs. It has no clock and no state: each output depends only on the current inputs. Pick an instruction to see what each signal should be.</p>
+  <p>The controller reads three fields of the instruction and the ALU's four flags, and produces every control signal the datapath needs. It has no clock and no state: each output depends only on the current inputs. Pick an instruction to see what each signal should be.</p>
 </header>
 
 <div class="stage">
-  <div class="picker" role="group" aria-label="Instruction">
-    <span class="lbl">Instruction</span>
+  <div class="pickers">
+  <div class="picker" role="group" aria-label="R-type">
+    <span class="lbl">R-type</span>
     <button type="button" data-ins="add">add</button>
     <button type="button" data-ins="sub">sub</button>
-    <button type="button" data-ins="and">and</button>
-    <button type="button" data-ins="or">or</button>
+    <button type="button" data-ins="sll">sll</button>
     <button type="button" data-ins="slt">slt</button>
-    <span class="sep" aria-hidden="true"></span>
+    <button type="button" data-ins="sltu">sltu</button>
+    <button type="button" data-ins="xor">xor</button>
+    <button type="button" data-ins="srl">srl</button>
+    <button type="button" data-ins="sra">sra</button>
+    <button type="button" data-ins="or">or</button>
+    <button type="button" data-ins="and">and</button>
+  </div>
+  <div class="picker" role="group" aria-label="I-type">
+    <span class="lbl">I-type</span>
     <button type="button" data-ins="addi">addi</button>
+    <button type="button" data-ins="srai">srai</button>
+    <button type="button" data-ins="sltiu">sltiu</button>
+  </div>
+  <div class="picker" role="group" aria-label="Memory">
+    <span class="lbl">Memory</span>
     <button type="button" data-ins="lw">lw</button>
     <button type="button" data-ins="sw">sw</button>
+  </div>
+  <div class="picker" role="group" aria-label="Branch">
+    <span class="lbl">Branch</span>
     <button type="button" data-ins="beq">beq</button>
+    <button type="button" data-ins="bne">bne</button>
+    <button type="button" data-ins="blt">blt</button>
+    <button type="button" data-ins="bge">bge</button>
+    <button type="button" data-ins="bltu">bltu</button>
+    <button type="button" data-ins="bgeu">bgeu</button>
+  </div>
+  <div class="picker" role="group" aria-label="Jump / upper">
+    <span class="lbl">Jump / upper</span>
     <button type="button" data-ins="jal">jal</button>
+    <button type="button" data-ins="jalr">jalr</button>
+    <button type="button" data-ins="lui">lui</button>
+    <button type="button" data-ins="auipc">auipc</button>
+  </div>
   </div>
 
   <div class="explain">
@@ -124,39 +153,64 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
       <p id="note"></p>
     </div>
     <div class="zero">
-      <span>ALU result</span>
-      <button type="button" id="zerobtn" aria-pressed="false">zero = 0</button>
+      <span>ALU flags</span>
+      <button type="button" data-flag="zero" data-short="Z" aria-pressed="false">Z = 0</button>
+      <button type="button" data-flag="negative" data-short="N" aria-pressed="false">N = 0</button>
+      <button type="button" data-flag="overflow" data-short="V" aria-pressed="false">V = 0</button>
+      <button type="button" data-flag="carry" data-short="C" aria-pressed="false">C = 0</button>
     </div>
   </div>
 
   <div class="scroll">
   <figure>
-    <svg class="dp" viewBox="0 0 1080 500" role="img" aria-label="Controller block diagram. op enters the main decoder, which drives regwrite, immsrc, alusrc, memwrite and resultsrc directly, plus three internal wires: aluop to the ALU decoder, and branch and jump to the PC-select logic. The ALU decoder combines aluop, funct3, op bit 5 and funct7b5 into aluctrl. pcsrc equals branch AND zero, OR jump.">
+    <svg class="dp" viewBox="0 0 1080 560" role="img" aria-label="Controller block diagram. op enters the main decoder, which drives regwrite, immsrc, alusrca, alusrcb, memwrite and resultsrc directly, plus four internal wires: aluop to the ALU decoder, and jump, jalr and branch to the pcsrc logic. The ALU decoder combines aluop, funct3, op bit 5 and funct7b5 into aluctrl. A branch-condition block uses funct3 to pick a test on the zero, negative, overflow and carry flags and outputs taken. pcsrc is 10 for jalr, 01 for jump or a taken branch, and 00 otherwise.">
 
       <!-- ===== blocks ===== -->
       <rect class="blk" x="230" y="45" width="220" height="105" rx="6"/>
       <text class="t" x="340" y="92" text-anchor="middle">aludec</text>
       <text class="ts" x="340" y="110" text-anchor="middle">ALU decoder</text>
 
-      <rect class="blk" x="230" y="190" width="200" height="240" rx="6"/>
-      <text class="t" x="300" y="300" text-anchor="middle">maindec</text>
-      <text class="ts" x="300" y="318" text-anchor="middle">main decoder</text>
-      <text class="ts" x="300" y="334" text-anchor="middle">case (op)</text>
+      <rect class="blk" x="230" y="190" width="200" height="245" rx="6"/>
+      <text class="t" x="290" y="300" text-anchor="middle">maindec</text>
+      <text class="ts" x="290" y="318" text-anchor="middle">main decoder</text>
+      <text class="ts" x="290" y="334" text-anchor="middle">case (op)</text>
+
+      <rect class="blk" x="520" y="460" width="120" height="80" rx="6"/>
+      <text class="t" x="590" y="497" text-anchor="middle">branch</text>
+      <text class="ts" x="590" y="513" text-anchor="middle">case (funct3)</text>
+
+      <rect class="blk" x="700" y="355" width="150" height="95" rx="6"/>
+      <text class="t" x="800" y="398" text-anchor="middle">pcsrc</text>
+      <text class="ts" x="800" y="414" text-anchor="middle">priority</text>
+      <text class="ts" x="775" y="470" text-anchor="middle">jalr → 10</text>
+      <text class="ts" x="775" y="485" text-anchor="middle">jump | (branch &amp; taken) → 01</text>
+      <text class="ts" x="775" y="500" text-anchor="middle">else → 00</text>
 
       <!-- port names inside maindec -->
       <text class="tp" x="422" y="219" text-anchor="end">regwrite</text>
       <text class="tp" x="422" y="244" text-anchor="end">immsrc</text>
-      <text class="tp" x="422" y="269" text-anchor="end">alusrc</text>
-      <text class="tp" x="422" y="294" text-anchor="end">memwrite</text>
-      <text class="tp" x="422" y="319" text-anchor="end">resultsrc</text>
-      <text class="tp" x="422" y="359" text-anchor="end">jump</text>
-      <text class="tp" x="422" y="384" text-anchor="end">branch</text>
+      <text class="tp" x="422" y="269" text-anchor="end">alusrca</text>
+      <text class="tp" x="422" y="294" text-anchor="end">alusrcb</text>
+      <text class="tp" x="422" y="319" text-anchor="end">memwrite</text>
+      <text class="tp" x="422" y="344" text-anchor="end">resultsrc</text>
+      <text class="tp" x="422" y="374" text-anchor="end">jump</text>
+      <text class="tp" x="422" y="394" text-anchor="end">jalr</text>
+      <text class="tp" x="422" y="414" text-anchor="end">branch</text>
       <text class="tp" x="330" y="206" text-anchor="middle">aluop</text>
       <!-- port names inside aludec -->
       <text class="tp" x="238" y="74">funct3</text>
       <text class="tp" x="238" y="104">funct7b5</text>
       <text class="tp" x="238" y="134">op5</text>
       <text class="tp" x="442" y="104" text-anchor="end">aluctrl</text>
+      <!-- port names inside pcsrc / branch -->
+      <text class="tp" x="706" y="374">jump</text>
+      <text class="tp" x="706" y="394">jalr</text>
+      <text class="tp" x="706" y="414">branch</text>
+      <text class="tp" x="706" y="434">taken</text>
+      <text class="tp" x="526" y="479">Z</text>
+      <text class="tp" x="526" y="496">N</text>
+      <text class="tp" x="526" y="513">V</text>
+      <text class="tp" x="526" y="530">C</text>
 
       <!-- ===== input pins (left) ===== -->
       <text class="tn" x="104" y="68" text-anchor="end">funct3</text>
@@ -171,9 +225,15 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
       <text class="tp" x="104" y="252" text-anchor="end">instr[6:0]</text>
       <rect class="pin" x="114" y="236" width="8" height="8"/>
 
-      <text class="tn" x="104" y="463" text-anchor="end">zero</text>
-      <text class="tp" x="104" y="477" text-anchor="end">from alu</text>
-      <rect class="pin" x="114" y="461" width="8" height="8"/>
+      <text class="tn" x="104" y="479" text-anchor="end">zero</text>
+      <rect class="pin" x="114" y="471" width="8" height="8"/>
+      <text class="tn" x="104" y="496" text-anchor="end">negative</text>
+      <rect class="pin" x="114" y="488" width="8" height="8"/>
+      <text class="tn" x="104" y="513" text-anchor="end">overflow</text>
+      <rect class="pin" x="114" y="505" width="8" height="8"/>
+      <text class="tn" x="104" y="530" text-anchor="end">carry</text>
+      <rect class="pin" x="114" y="522" width="8" height="8"/>
+      <text class="tp" x="104" y="548" text-anchor="end">from alu</text>
 
       <!-- input wires -->
       <path class="w in bus" d="M122 70 H230"/>
@@ -181,51 +241,60 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
       <path class="w in bus" d="M122 240 H230"/>
       <path class="w in" id="w-op5" d="M170 240 V130 H230"/>
       <circle class="dot" cx="170" cy="240" r="3.5"/>
-      <path class="w" id="w-zero" d="M122 465 H520 V410 H560"/>
+      <path class="w" id="w-zero" d="M122 475 H520"/>
+      <path class="w" id="w-negative" d="M122 492 H520"/>
+      <path class="w" id="w-overflow" d="M122 509 H520"/>
+      <path class="w" id="w-carry" d="M122 526 H520"/>
+      <path class="w in" d="M580 444 V460"/>
+      <text class="ti" x="586" y="452">funct3</text>
 
       <text class="val" id="v-f3" x="134" y="63">000</text>
       <text class="val" id="v-f7" x="134" y="93">0</text>
       <text class="val" id="v-op" x="134" y="233">0110011</text>
       <text class="ti" x="178" y="124">op[5]</text>
       <text class="val" id="v-op5" x="178" y="148">1</text>
-      <text class="val" id="v-zero" x="134" y="458">0</text>
+      <text class="val" id="v-zero" x="480" y="472" text-anchor="end">0</text>
+      <text class="val" id="v-negative" x="496" y="489" text-anchor="end">0</text>
+      <text class="val" id="v-overflow" x="480" y="506" text-anchor="end">0</text>
+      <text class="val" id="v-carry" x="496" y="523" text-anchor="end">0</text>
 
       <!-- ===== internal wires ===== -->
       <path class="w bus" id="w-aluop" d="M330 190 V150"/>
       <text class="ti" x="340" y="168">aluop</text>
       <text class="val" id="v-aluop" x="340" y="183">10</text>
 
-      <path class="w" id="w-jump" d="M430 355 H686"/>
-      <text class="ti" x="446" y="349">jump</text>
-      <text class="val" id="v-jump" x="486" y="349">0</text>
+      <path class="w" id="w-jump" d="M430 370 H700"/>
+      <text class="ti" x="446" y="364">jump</text>
+      <text class="val" id="v-jump" x="486" y="364">0</text>
+      <path class="w" id="w-jalr" d="M430 390 H700"/>
+      <text class="ti" x="446" y="384">jalr</text>
+      <text class="val" id="v-jalr" x="486" y="384">0</text>
+      <path class="w" id="w-branch" d="M430 410 H700"/>
+      <text class="ti" x="446" y="404">branch</text>
+      <text class="val" id="v-branch" x="500" y="404">0</text>
 
-      <path class="w" id="w-branch" d="M430 380 H560"/>
-      <text class="ti" x="446" y="374">branch</text>
-      <text class="val" id="v-branch" x="500" y="374">0</text>
-
-      <!-- AND gate: branch & zero -->
-      <path class="gate" d="M560 370 h25 a25 25 0 0 1 0 50 h-25 Z"/>
-      <path class="w" id="w-and" d="M610 395 H686"/>
-      <!-- OR gate: (branch & zero) | jump -->
-      <path class="gate" d="M680 345 Q700 375 680 405 Q725 405 745 375 Q725 345 680 345 Z"/>
-      <text class="ts" x="652" y="446" text-anchor="middle">pcsrc = (branch &amp; zero) | jump</text>
+      <path class="w" id="w-taken" d="M640 500 H670 V430 H700"/>
+      <text class="ti" x="646" y="494">taken</text>
+      <text class="val" id="v-taken" x="646" y="517">0</text>
 
       <!-- ===== output wires ===== -->
       <path class="w bus" id="w-aluctrl" d="M450 100 H940"/>
       <path class="w" id="w-regwrite" d="M430 215 H940"/>
       <path class="w bus" id="w-immsrc" d="M430 240 H940"/>
-      <path class="w" id="w-alusrc" d="M430 265 H940"/>
-      <path class="w" id="w-memwrite" d="M430 290 H940"/>
-      <path class="w bus" id="w-resultsrc" d="M430 315 H940"/>
-      <path class="w" id="w-pcsrc" d="M745 375 H940"/>
+      <path class="w bus" id="w-alusrca" d="M430 265 H940"/>
+      <path class="w" id="w-alusrcb" d="M430 290 H940"/>
+      <path class="w" id="w-memwrite" d="M430 315 H940"/>
+      <path class="w bus" id="w-resultsrc" d="M430 340 H940"/>
+      <path class="w bus" id="w-pcsrc" d="M850 400 H940"/>
 
-      <text class="val" id="v-aluctrl" x="900" y="93" text-anchor="end">000</text>
+      <text class="val" id="v-aluctrl" x="900" y="93" text-anchor="end">0000</text>
       <text class="val" id="v-regwrite" x="900" y="209" text-anchor="end">1</text>
       <text class="val" id="v-immsrc" x="900" y="234" text-anchor="end">xxx</text>
-      <text class="val" id="v-alusrc" x="900" y="259" text-anchor="end">0</text>
-      <text class="val" id="v-memwrite" x="900" y="284" text-anchor="end">0</text>
-      <text class="val" id="v-resultsrc" x="900" y="309" text-anchor="end">00</text>
-      <text class="val" id="v-pcsrc" x="900" y="369" text-anchor="end">0</text>
+      <text class="val" id="v-alusrca" x="900" y="259" text-anchor="end">00</text>
+      <text class="val" id="v-alusrcb" x="900" y="284" text-anchor="end">0</text>
+      <text class="val" id="v-memwrite" x="900" y="309" text-anchor="end">0</text>
+      <text class="val" id="v-resultsrc" x="900" y="334" text-anchor="end">00</text>
+      <text class="val" id="v-pcsrc" x="900" y="394" text-anchor="end">00</text>
 
       <!-- output pins (right) -->
       <rect class="pin" x="940" y="96" width="8" height="8"/>
@@ -234,17 +303,19 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
       <rect class="pin" x="940" y="261" width="8" height="8"/>
       <rect class="pin" x="940" y="286" width="8" height="8"/>
       <rect class="pin" x="940" y="311" width="8" height="8"/>
-      <rect class="pin" x="940" y="371" width="8" height="8"/>
+      <rect class="pin" x="940" y="336" width="8" height="8"/>
+      <rect class="pin" x="940" y="396" width="8" height="8"/>
 
-      <text class="tn" x="958" y="98">aluctrl</text><text class="tp" x="958" y="112">→ alu.F</text>
+      <text class="tn" x="958" y="98">aluctrl[3:0]</text><text class="tp" x="958" y="112">→ alu.F</text>
       <text class="tn" x="958" y="213">regwrite</text><text class="tp" x="958" y="227">→ regfile.we</text>
-      <text class="tn" x="958" y="242">immsrc</text><text class="tp" x="1030" y="242">→ ext</text>
-      <text class="tn" x="958" y="267">alusrc</text><text class="tp" x="1018" y="267">→ srcbmux</text>
-      <text class="tn" x="958" y="292">memwrite</text><text class="tp" x="958" y="306">→ dmem (top)</text>
-      <text class="tn" x="958" y="319">resultsrc</text><text class="tp" x="958" y="333">→ resultmux</text>
-      <text class="tn" x="958" y="377">pcsrc</text><text class="tp" x="958" y="391">→ pcmux</text>
+      <text class="tn" x="958" y="242">immsrc</text><text class="tp" x="1012" y="242">→ ext</text>
+      <text class="tn" x="958" y="267">alusrca</text><text class="tp" x="1016" y="267">→ srcamux</text>
+      <text class="tn" x="958" y="292">alusrcb</text><text class="tp" x="1016" y="292">→ srcbmux</text>
+      <text class="tn" x="958" y="317">memwrite</text><text class="tp" x="1024" y="317">→ dmem</text>
+      <text class="tn" x="958" y="342">resultsrc</text><text class="tp" x="958" y="356">→ resultmux</text>
+      <text class="tn" x="958" y="402">pcsrc</text><text class="tp" x="958" y="416">→ pcmux</text>
     </svg>
-    <figcaption>Squares are the ports of <code>controller.v</code>. Names in blue (<code>aluop</code>, <code>branch</code>, <code>jump</code>, <code>op[5]</code>) are internal wires that never leave the module. <code>maindec</code> only looks at <code>op</code>. <code>aludec</code> never sees <code>op</code> directly: it gets <code>aluop</code> from <code>maindec</code> and only uses <code>funct3</code> when <code>aluop</code> is <code>10</code>.</figcaption>
+    <figcaption>Squares are the ports of <code>controller.v</code>. Names in blue (<code>aluop</code>, <code>jump</code>, <code>jalr</code>, <code>branch</code>, <code>taken</code>, <code>op[5]</code>) are internal wires that never leave the module. The <code>funct3</code> stub into the branch block is the same <code>funct3</code> input pin. <code>maindec</code> only looks at <code>op</code>. <code>aludec</code> never sees <code>op</code> directly: it gets <code>aluop</code> from <code>maindec</code> and only uses <code>funct3</code> when <code>aluop</code> is <code>10</code>.</figcaption>
   </figure>
   </div>
 
@@ -255,42 +326,152 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
   </div>
 </div>
 
+<section>
+  <h2>Inside <code>aludec</code></h2>
+  <p class="muted">Follows the picker above. The low 3 bits of <code>aluctrl</code> are <code>funct3</code> itself, so the only logic is the alt bit (bit 3) and a 3-way choice on <code>aluop</code>.</p>
+  <div class="stage">
+    <div class="scroll">
+    <figure>
+      <svg class="dp" viewBox="0 0 800 310" role="img" aria-label="Inside aludec. A mux on funct3 picks the alt bit: op5 AND funct7b5 when funct3 is 000, funct7b5 alone when funct3 is 101, and 0 otherwise. alt is joined with funct3 to make a 4-bit code. A second mux on aluop picks 0000 for add, 1000 for sub, or that 4-bit code, and drives aluctrl.">
+        <!-- input pins -->
+        <text class="tn" x="96" y="68" text-anchor="end">funct3</text>
+        <rect class="pin" x="104" y="66" width="8" height="8"/>
+        <text class="tn" x="96" y="173" text-anchor="end">funct7b5</text>
+        <rect class="pin" x="104" y="171" width="8" height="8"/>
+        <text class="tn" x="96" y="248" text-anchor="end">op5</text>
+        <rect class="pin" x="104" y="246" width="8" height="8"/>
+        <text class="tn" x="96" y="283" text-anchor="end">aluop</text>
+        <rect class="pin" x="104" y="281" width="8" height="8"/>
+
+        <!-- wires -->
+        <path class="w bus" id="d-f3" d="M112 70 H420"/>
+        <path class="w" id="d-f3sel" d="M315 70 V125"/>
+        <circle class="dot" cx="315" cy="70" r="3.5"/>
+        <path class="w" id="d-f7" d="M112 175 H300"/>
+        <path class="w" id="d-f7and" d="M160 175 V230 H190"/>
+        <circle class="dot" cx="160" cy="175" r="3.5"/>
+        <path class="w" id="d-op5" d="M112 250 H190"/>
+        <path class="w" id="d-rsub" d="M228 240 H270 V210 H300"/>
+        <path class="w" id="d-zero" d="M292 140 H300"/>
+        <path class="w" id="d-alt" d="M330 175 H420"/>
+        <path class="w bus" id="d-cat" d="M480 150 H540"/>
+        <path class="w bus" id="d-c00" d="M532 70 H540"/>
+        <path class="w bus" id="d-c01" d="M532 110 H540"/>
+        <path class="w bus" id="d-aluop" d="M112 285 H555 V193"/>
+        <path class="w bus" id="d-out" d="M570 120 H690"/>
+
+        <!-- AND gate -->
+        <path class="gate" d="M190 220 h18 a20 20 0 0 1 0 40 h-18 Z"/>
+        <text class="ti" x="236" y="262">rtypesub</text>
+        <text class="val" id="dv-rsub" x="236" y="233">0</text>
+
+        <!-- alt mux -->
+        <polygon class="blk" points="300,120 330,132 330,218 300,230"/>
+        <text class="tp" x="303" y="144">else</text>
+        <text class="tp" x="303" y="179">101</text>
+        <text class="tp" x="303" y="214">000</text>
+        <text class="tn" x="288" y="144" text-anchor="end">0</text>
+        <text class="ti" x="322" y="100">funct3 selects</text>
+        <text class="ti" x="375" y="168" text-anchor="middle">alt</text>
+        <text class="val" id="dv-alt" x="375" y="193" text-anchor="middle">0</text>
+
+        <!-- concat -->
+        <rect class="blk" x="420" y="50" width="60" height="145" rx="6"/>
+        <text class="tp" x="426" y="84">[2:0]</text>
+        <text class="tp" x="426" y="189">[3]</text>
+        <text class="tn" x="450" y="120" text-anchor="middle">{alt,</text>
+        <text class="tn" x="450" y="136" text-anchor="middle">funct3}</text>
+        <text class="val" id="dv-cat" x="510" y="143" text-anchor="middle">0000</text>
+
+        <!-- aluop mux -->
+        <polygon class="blk" points="540,40 570,52 570,188 540,200"/>
+        <text class="tp" x="543" y="74">00</text>
+        <text class="tp" x="543" y="114">01</text>
+        <text class="tp" x="543" y="154">10</text>
+        <text class="tn" x="528" y="74" text-anchor="end">0000</text>
+        <text class="tn" x="528" y="114" text-anchor="end">1000</text>
+        <text class="ts" x="496" y="88" text-anchor="end">add</text>
+        <text class="ts" x="496" y="128" text-anchor="end">sub</text>
+
+        <!-- output pin -->
+        <rect class="pin" x="690" y="116" width="8" height="8"/>
+        <text class="tn" x="708" y="118">aluctrl[3:0]</text>
+        <text class="tp" x="708" y="132">→ alu.F</text>
+        <text class="val" id="dv-out" x="630" y="113" text-anchor="middle">0000</text>
+
+        <!-- input values -->
+        <text class="val" id="dv-f3" x="124" y="63">000</text>
+        <text class="val" id="dv-f7" x="124" y="168">0</text>
+        <text class="val" id="dv-op5" x="124" y="243">1</text>
+        <text class="val" id="dv-aluop" x="124" y="278">10</text>
+      </svg>
+      <figcaption>Why alt has three cases: for add/sub, <code>instr[30]</code> is only a real <code>funct7</code> bit on R-type, so it is ANDed with <code>op5</code>. For srl/sra it is real on both R-type and I-type (srai keeps a <code>funct7</code> field), so <code>op5</code> is ignored. For every other <code>funct3</code>, alt is 0 even when <code>instr[30]</code> is 1, as it is in <code>sltiu</code> with a negative immediate.</figcaption>
+    </figure>
+    </div>
+  </div>
+</section>
+
 <div class="grid2">
   <section>
-    <h2>Main decoder: <code>op</code> → 12 bits</h2>
+    <h2>Main decoder: <code>op</code> → 15 bits</h2>
     <p class="muted">One row per opcode. This becomes one <code>case (op)</code> where each branch assigns a whole row. Blue columns stay inside the controller.</p>
     <div class="tbl"><table>
-      <thead><tr><th>Type</th><th>op</th><th>regwrite</th><th>immsrc</th><th>alusrc</th><th>memwrite</th><th>resultsrc</th><th class="int">branch</th><th class="int">aluop</th><th class="int">jump</th></tr></thead>
+      <thead><tr><th>Type</th><th>op</th><th>regwrite</th><th>immsrc</th><th>alusrca</th><th>alusrcb</th><th>memwrite</th><th>resultsrc</th><th class="int">branch</th><th class="int">aluop</th><th class="int">jump</th><th class="int">jalr</th></tr></thead>
       <tbody>
-        <tr data-row="R"><td>R-type</td><td>0110011</td><td>1</td><td>xxx</td><td>0</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td></tr>
-        <tr data-row="I"><td>I-ALU</td><td>0010011</td><td>1</td><td>000</td><td>1</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td></tr>
-        <tr data-row="lw"><td>lw</td><td>0000011</td><td>1</td><td>000</td><td>1</td><td>0</td><td>01</td><td>0</td><td>00</td><td>0</td></tr>
-        <tr data-row="sw"><td>sw</td><td>0100011</td><td>0</td><td>001</td><td>1</td><td>1</td><td>xx</td><td>0</td><td>00</td><td>0</td></tr>
-        <tr data-row="beq"><td>beq</td><td>1100011</td><td>0</td><td>010</td><td>0</td><td>0</td><td>xx</td><td>1</td><td>01</td><td>0</td></tr>
-        <tr data-row="jal"><td>jal</td><td>1101111</td><td>1</td><td>011</td><td>x</td><td>0</td><td>10</td><td>0</td><td>xx</td><td>1</td></tr>
+        <tr data-row="R"><td>R-type</td><td>0110011</td><td>1</td><td>xxx</td><td>00</td><td>0</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td><td>0</td></tr>
+        <tr data-row="I"><td>I-ALU</td><td>0010011</td><td>1</td><td>000</td><td>00</td><td>1</td><td>0</td><td>00</td><td>0</td><td>10</td><td>0</td><td>0</td></tr>
+        <tr data-row="lw"><td>load</td><td>0000011</td><td>1</td><td>000</td><td>00</td><td>1</td><td>0</td><td>01</td><td>0</td><td>00</td><td>0</td><td>0</td></tr>
+        <tr data-row="sw"><td>store</td><td>0100011</td><td>0</td><td>001</td><td>00</td><td>1</td><td>1</td><td>xx</td><td>0</td><td>00</td><td>0</td><td>0</td></tr>
+        <tr data-row="br"><td>branch</td><td>1100011</td><td>0</td><td>010</td><td>00</td><td>0</td><td>0</td><td>xx</td><td>1</td><td>01</td><td>0</td><td>0</td></tr>
+        <tr data-row="jal"><td>jal</td><td>1101111</td><td>1</td><td>011</td><td>xx</td><td>x</td><td>0</td><td>10</td><td>0</td><td>xx</td><td>1</td><td>0</td></tr>
+        <tr data-row="jalr"><td>jalr</td><td>1100111</td><td>1</td><td>000</td><td>00</td><td>1</td><td>0</td><td>10</td><td>0</td><td>00</td><td>0</td><td>1</td></tr>
+        <tr data-row="lui"><td>lui</td><td>0110111</td><td>1</td><td>100</td><td>10</td><td>1</td><td>0</td><td>00</td><td>0</td><td>00</td><td>0</td><td>0</td></tr>
+        <tr data-row="auipc"><td>auipc</td><td>0010111</td><td>1</td><td>100</td><td>01</td><td>1</td><td>0</td><td>00</td><td>0</td><td>00</td><td>0</td><td>0</td></tr>
       </tbody>
     </table></div>
-    <p class="muted"><code>immsrc</code> uses your extender's codes: 000 I, 001 S, 010 B, 011 J, 100 U.</p>
+    <p class="muted"><code>immsrc</code> uses your extender's codes: 000 I, 001 S, 010 B, 011 J, 100 U. <code>alusrca</code>: 00 rd1, 01 pc, 10 zero. One branch row covers all six branches; funct3 picks the test.</p>
   </section>
 
   <section>
     <h2>ALU decoder: → <code>aluctrl</code></h2>
-    <p class="muted">Outer <code>case (aluop)</code>; for <code>10</code>, an inner <code>case (funct3)</code>. Outputs use your ALU's <code>F</code> codes.</p>
+    <p class="muted">Outer <code>case (aluop)</code>. For <code>10</code>, <code>aluctrl = {alt, funct3}</code>, so no 8-way table is needed. Outputs use the 4-bit <code>F</code> codes in <code>alu.v</code>.</p>
     <div class="tbl"><table>
-      <thead><tr><th class="int">aluop</th><th>funct3</th><th>{op5, funct7b5}</th><th>aluctrl</th><th>Operation</th></tr></thead>
+      <thead><tr><th class="int">aluop</th><th>funct3</th><th>alt</th><th>aluctrl</th><th>Operation</th></tr></thead>
       <tbody>
-        <tr data-row="a00"><td>00</td><td>x</td><td>x</td><td>000</td><td class="n">add (lw, sw address)</td></tr>
-        <tr data-row="a01"><td>01</td><td>x</td><td>x</td><td>001</td><td class="n">sub (beq compare)</td></tr>
-        <tr data-row="radd"><td>10</td><td>000</td><td>00, 01, 10</td><td>000</td><td class="n">add, addi</td></tr>
-        <tr data-row="rsub"><td>10</td><td>000</td><td>11</td><td>001</td><td class="n">sub</td></tr>
-        <tr data-row="rslt"><td>10</td><td>010</td><td>x</td><td>101</td><td class="n">slt, slti</td></tr>
-        <tr data-row="ror"><td>10</td><td>110</td><td>x</td><td>011</td><td class="n">or, ori</td></tr>
-        <tr data-row="rand"><td>10</td><td>111</td><td>x</td><td>010</td><td class="n">and, andi</td></tr>
+        <tr data-row="a00"><td>00</td><td>x</td><td>–</td><td>0000</td><td class="n">add (load/store address; later lui, auipc, jalr)</td></tr>
+        <tr data-row="a01"><td>01</td><td>x</td><td>–</td><td>1000</td><td class="n">sub (branch compare)</td></tr>
+        <tr data-row="radd"><td>10</td><td>000</td><td>op5 &amp; f7b5 = 0</td><td>0000</td><td class="n">add, addi</td></tr>
+        <tr data-row="rsub"><td>10</td><td>000</td><td>op5 &amp; f7b5 = 1</td><td>1000</td><td class="n">sub</td></tr>
+        <tr data-row="rsll"><td>10</td><td>001</td><td>0</td><td>0001</td><td class="n">sll, slli</td></tr>
+        <tr data-row="rslt"><td>10</td><td>010</td><td>0</td><td>0010</td><td class="n">slt, slti</td></tr>
+        <tr data-row="rsltu"><td>10</td><td>011</td><td>0</td><td>0011</td><td class="n">sltu, sltiu</td></tr>
+        <tr data-row="rxor"><td>10</td><td>100</td><td>0</td><td>0100</td><td class="n">xor, xori</td></tr>
+        <tr data-row="rsrl"><td>10</td><td>101</td><td>f7b5 = 0</td><td>0101</td><td class="n">srl, srli</td></tr>
+        <tr data-row="rsra"><td>10</td><td>101</td><td>f7b5 = 1</td><td>1101</td><td class="n">sra, srai</td></tr>
+        <tr data-row="ror"><td>10</td><td>110</td><td>0</td><td>0110</td><td class="n">or, ori</td></tr>
+        <tr data-row="rand"><td>10</td><td>111</td><td>0</td><td>0111</td><td class="n">and, andi</td></tr>
       </tbody>
     </table></div>
-    <p class="muted">Subtract only when <em>both</em> <code>op5</code> and <code>funct7b5</code> are 1. Without the <code>op5</code> check, <code>addi</code> with a negative immediate would be decoded as a subtract, because <code>instr[30]</code> is an immediate bit there. Click <code>addi</code> above to see it.</p>
+    <p class="muted">Subtract only when <em>both</em> <code>op5</code> and <code>funct7b5</code> are 1: on <code>addi</code>, <code>instr[30]</code> is an immediate bit. sra is the opposite case: <code>srai</code> is I-type but still needs <code>funct7b5</code>, so don't check <code>op5</code> there. Click <code>addi</code> and <code>srai</code> above to compare.</p>
   </section>
 </div>
+
+<section>
+  <h2>Branch condition: <code>funct3</code> + flags → <code>taken</code></h2>
+  <p class="muted">Every branch runs the ALU as rs1 − rs2 (aluop = 01), so the flags describe that subtraction. <code>taken</code> only matters when <code>branch = 1</code>.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>funct3</th><th>Branch</th><th>taken =</th><th>Same test as</th></tr></thead>
+    <tbody>
+      <tr data-row="b000"><td>000</td><td>beq</td><td>Z</td><td class="n">rs1 − rs2 is 0</td></tr>
+      <tr data-row="b001"><td>001</td><td>bne</td><td>!Z</td><td class="n">opposite of beq</td></tr>
+      <tr data-row="b100"><td>100</td><td>blt</td><td>N ^ V</td><td class="n">slt</td></tr>
+      <tr data-row="b101"><td>101</td><td>bge</td><td>!(N ^ V)</td><td class="n">opposite of blt</td></tr>
+      <tr data-row="b110"><td>110</td><td>bltu</td><td>!C</td><td class="n">sltu</td></tr>
+      <tr data-row="b111"><td>111</td><td>bgeu</td><td>C</td><td class="n">opposite of bltu</td></tr>
+      <tr><td>010, 011</td><td>none</td><td>0</td><td class="n">not valid branch encodings; the default arm</td></tr>
+    </tbody>
+  </table></div>
+</section>
 
 <section>
   <h2>How to lay out the code</h2>
@@ -301,36 +482,44 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 <pre><span class="k">module</span> controller (
     <span class="k">input</span>  [6:0] op,
     <span class="k">input</span>  [2:0] funct3,
-    <span class="k">input</span>        funct7b5, zero,
-    <span class="k">output</span> [1:0] resultsrc,
-    <span class="k">output</span>       memwrite, pcsrc,
-    <span class="k">output</span>       alusrc, regwrite,
-    <span class="k">output</span> [2:0] immsrc, aluctrl
+    <span class="k">input</span>        funct7b5,
+    <span class="k">input</span>        zero, negative,
+    <span class="k">input</span>        overflow, carry,
+    <span class="k">output</span>       regwrite, memwrite,
+    <span class="k">output</span>       alusrcb,
+    <span class="k">output</span> [1:0] alusrca, resultsrc,
+    <span class="k">output</span> [1:0] pcsrc,
+    <span class="k">output</span> [2:0] immsrc,
+    <span class="k">output</span> [3:0] aluctrl
 );
     <span class="k">wire</span> [1:0] aluop;
-    <span class="k">wire</span>       branch, jump;
+    <span class="k">wire</span>       branch, jump, jalr;
+    <span class="k">reg</span>        taken;
 
     <span class="c">// maindec md (...);</span>
     <span class="c">// aludec  ad (...);</span>
-    <span class="c">// assign pcsrc = ...;</span>
+    <span class="c">// always @(*) case (funct3) ... taken</span>
+    <span class="c">// assign pcsrc = ...;  jalr first</span>
 <span class="k">endmodule</span></pre>
     </div>
     <div>
       <span class="fn">datapath/maindec.v</span>
 <pre><span class="k">module</span> maindec (
     <span class="k">input</span>  [6:0] op,
-    <span class="k">output</span> [1:0] resultsrc,
-    <span class="k">output</span>       memwrite, branch,
-    <span class="k">output</span>       alusrc, regwrite, jump,
+    <span class="k">output</span>       regwrite, memwrite,
+    <span class="k">output</span>       alusrcb, branch,
+    <span class="k">output</span>       jump, jalr,
+    <span class="k">output</span> [1:0] alusrca, resultsrc,
     <span class="k">output</span> [2:0] immsrc,
     <span class="k">output</span> [1:0] aluop
 );
-    <span class="c">// One 12-bit bus, one row per case.</span>
+    <span class="c">// One 15-bit bus, one row per case.</span>
     <span class="c">// Order = column order of the table.</span>
-    <span class="k">reg</span> [11:0] controls;
-    <span class="k">assign</span> {regwrite, immsrc, alusrc,
-            memwrite, resultsrc, branch,
-            aluop, jump} = controls;
+    <span class="k">reg</span> [14:0] controls;
+    <span class="k">assign</span> {regwrite, immsrc, alusrca,
+            alusrcb, memwrite, resultsrc,
+            branch, aluop, jump, jalr}
+            = controls;
 
     <span class="c">// always @(*) case (op) ... endcase</span>
 <span class="k">endmodule</span></pre>
@@ -342,29 +531,33 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
     <span class="k">input</span>  [2:0] funct3,
     <span class="k">input</span>        funct7b5,
     <span class="k">input</span>  [1:0] aluop,
-    <span class="k">output</span> <span class="k">reg</span> [2:0] aluctrl
+    <span class="k">output</span> <span class="k">reg</span> [3:0] aluctrl
 );
     <span class="k">wire</span> rtypesub = op5 &amp; funct7b5;
+    <span class="c">// alt: rtypesub if funct3 = 000,</span>
+    <span class="c">//      funct7b5 if funct3 = 101, else 0</span>
 
     <span class="c">// always @(*)</span>
     <span class="c">//   case (aluop)</span>
-    <span class="c">//     2'b00: ...</span>
-    <span class="c">//     2'b01: ...</span>
-    <span class="c">//     default: case (funct3) ...</span>
+    <span class="c">//     2'b00: ...  add</span>
+    <span class="c">//     2'b01: ...  sub</span>
+    <span class="c">//     2'b10: ...  {alt, funct3}</span>
+    <span class="c">//     default: ...</span>
 <span class="k">endmodule</span></pre>
     </div>
   </div>
-  <p class="muted">The 12-bit <code>controls</code> bus is 1 + 3 + 1 + 1 + 2 + 1 + 2 + 1 bits, matching the table columns left to right. Each table row then becomes one line, for example <code>7'b0000011: controls = 12'b1_000_1_0_01_0_00_0; // lw</code>.</p>
+  <p class="muted">The 15-bit <code>controls</code> bus is 1 + 3 + 2 + 1 + 1 + 2 + 1 + 2 + 1 + 1 bits, matching the table columns left to right. Each table row then becomes one line, for example <code>7'b0000011: controls = 15'b1_000_00_1_0_01_0_00_0_0; // lw</code>. Your <code>maindec.v</code> assigns each signal separately instead, which works just as well.</p>
 </section>
 
 <div class="grid2">
   <section>
     <h2>Things that trip people up</h2>
     <ul class="gotchas">
-      <li><strong>No <code>clk</code> or <code>rst</code>.</strong> Your current <code>controller.v</code> has them. A single-cycle controller has no state, so remove them.</li>
+      <li><strong>No <code>clk</code> or <code>rst</code>.</strong> A single-cycle controller has no state. Every output depends only on the current inputs.</li>
+      <li><strong><code>taken</code> means nothing outside a branch.</strong> For other opcodes, funct3 encodes something else and the flags come from whatever the ALU did. That's why pcsrc only uses it as <code>branch &amp; taken</code>.</li>
       <li><strong>Every <code>case</code> needs a <code>default</code>.</strong> Without one, an <code>always @(*)</code> block infers a latch. Defaulting to all <code>x</code> makes an unsupported opcode stand out in GTKWave.</li>
       <li><strong>Don't cares.</strong> Writing <code>x</code> for don't cares lets synthesis simplify the logic. Writing <code>0</code> also works. It only matters that the 1s and real values are right.</li>
-      <li><strong><code>beq</code> works through subtraction.</strong> <code>aluctrl = 001</code> makes the ALU compute rs1 − rs2, so <code>zero</code> is 1 exactly when they're equal.</li>
+      <li><strong>Branches work through subtraction.</strong> <code>aluctrl = 1000</code> makes the ALU compute rs1 − rs2, and the flags of that subtraction decide all six branches.</li>
       <li><strong><code>memwrite</code> skips the datapath.</strong> It goes from the controller straight to <code>dmem</code> in the top level, which is why <code>datapath.v</code> has no <code>memwrite</code> port.</li>
     </ul>
   </section>
@@ -378,7 +571,7 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
         <tr><td>op</td><td>instr[6:0]</td></tr>
         <tr><td>funct3</td><td>instr[14:12]</td></tr>
         <tr><td>funct7b5</td><td>instr[30]</td></tr>
-        <tr><td>zero</td><td>datapath.zero</td></tr>
+        <tr><td>zero, negative, overflow, carry</td><td>same-named datapath outputs</td></tr>
         <tr><td>memwrite</td><td>output of riscv → dmem</td></tr>
         <tr><td>everything else</td><td>same-named datapath input</td></tr>
       </tbody>
@@ -390,37 +583,117 @@ ul.gotchas { margin: 0; padding-left: 1.2em; display: flex; flex-direction: colu
 
 <script>
 const MAIN = {
-  R:   { regwrite:'1', immsrc:'xxx', alusrc:'0', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0' },
-  I:   { regwrite:'1', immsrc:'000', alusrc:'1', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0' },
-  lw:  { regwrite:'1', immsrc:'000', alusrc:'1', memwrite:'0', resultsrc:'01', branch:'0', aluop:'00', jump:'0' },
-  sw:  { regwrite:'0', immsrc:'001', alusrc:'1', memwrite:'1', resultsrc:'xx', branch:'0', aluop:'00', jump:'0' },
-  beq: { regwrite:'0', immsrc:'010', alusrc:'0', memwrite:'0', resultsrc:'xx', branch:'1', aluop:'01', jump:'0' },
-  jal: { regwrite:'1', immsrc:'011', alusrc:'x', memwrite:'0', resultsrc:'10', branch:'0', aluop:'xx', jump:'1' }
+  R:     { regwrite:'1', immsrc:'xxx', alusrca:'00', alusrcb:'0', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0', jalr:'0' },
+  I:     { regwrite:'1', immsrc:'000', alusrca:'00', alusrcb:'1', memwrite:'0', resultsrc:'00', branch:'0', aluop:'10', jump:'0', jalr:'0' },
+  lw:    { regwrite:'1', immsrc:'000', alusrca:'00', alusrcb:'1', memwrite:'0', resultsrc:'01', branch:'0', aluop:'00', jump:'0', jalr:'0' },
+  sw:    { regwrite:'0', immsrc:'001', alusrca:'00', alusrcb:'1', memwrite:'1', resultsrc:'xx', branch:'0', aluop:'00', jump:'0', jalr:'0' },
+  br:    { regwrite:'0', immsrc:'010', alusrca:'00', alusrcb:'0', memwrite:'0', resultsrc:'xx', branch:'1', aluop:'01', jump:'0', jalr:'0' },
+  jal:   { regwrite:'1', immsrc:'011', alusrca:'xx', alusrcb:'x', memwrite:'0', resultsrc:'10', branch:'0', aluop:'xx', jump:'1', jalr:'0' },
+  jalr:  { regwrite:'1', immsrc:'000', alusrca:'00', alusrcb:'1', memwrite:'0', resultsrc:'10', branch:'0', aluop:'00', jump:'0', jalr:'1' },
+  lui:   { regwrite:'1', immsrc:'100', alusrca:'10', alusrcb:'1', memwrite:'0', resultsrc:'00', branch:'0', aluop:'00', jump:'0', jalr:'0' },
+  auipc: { regwrite:'1', immsrc:'100', alusrca:'01', alusrcb:'1', memwrite:'0', resultsrc:'00', branch:'0', aluop:'00', jump:'0', jalr:'0' }
 };
 const INS = {
-  add:  { asm:'add x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'0', arow:'radd', ctrl:'000',
-          note:'R-type writes the ALU result back to rd. aluop = 10 tells aludec to read funct3. funct3 = 000 with funct7b5 = 0 means add.' },
-  sub:  { asm:'sub x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'1', arow:'rsub', ctrl:'001',
-          note:'Same opcode and funct3 as add. The only difference is funct7b5 (instr[30]) = 1, and op[5] = 1 confirms this is R-type, so aludec picks sub.' },
-  and:  { asm:'and x3, x1, x2',  t:'R',   op:'0110011', f3:'111', f7:'0', arow:'rand', ctrl:'010',
-          note:'Same main decoder row as every R-type. Only funct3 changes, so only aluctrl changes.' },
-  or:   { asm:'or x3, x1, x2',   t:'R',   op:'0110011', f3:'110', f7:'0', arow:'ror',  ctrl:'011',
-          note:'Same main decoder row as every R-type. funct3 = 110 selects or.' },
-  slt:  { asm:'slt x3, x1, x2',  t:'R',   op:'0110011', f3:'010', f7:'0', arow:'rslt', ctrl:'101',
+  add:  { asm:'add x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'0',
+          note:'R-type writes the ALU result back to rd. aluop = 10 tells aludec to use funct3. funct3 = 000 with alt = 0 means add.' },
+  sub:  { asm:'sub x3, x1, x2',  t:'R',   op:'0110011', f3:'000', f7:'1',
+          note:'Same opcode and funct3 as add. funct7b5 (instr[30]) = 1, and op[5] = 1 confirms this is R-type, so alt = 1 and aluctrl = 1000.' },
+  sll:  { asm:'sll x3, x1, x2',  t:'R',   op:'0110011', f3:'001', f7:'0',
+          note:'funct3 = 001 passes straight through as the low 3 bits. alt is 0 because funct3 is neither 000 nor 101.' },
+  slt:  { asm:'slt x3, x1, x2',  t:'R',   op:'0110011', f3:'010', f7:'0',
           note:'funct3 = 010 selects slt. The ALU outputs 1 if rs1 < rs2 (signed), else 0.' },
-  addi: { asm:'addi x5, x0, -1', t:'I',   op:'0010011', f3:'000', f7:'1', arow:'radd', ctrl:'000',
-          note:'funct7b5 is 1 here only because -1 has all its immediate bits set, and instr[30] is one of them. op[5] = 0 marks this as I-type, so aludec still picks add. Without the op[5] check this addi would subtract.' },
-  lw:   { asm:'lw x6, 8(x2)',    t:'lw',  op:'0000011', f3:'010', f7:'0', arow:'a00',  ctrl:'000',
+  sltu: { asm:'sltu x3, x1, x2', t:'R',   op:'0110011', f3:'011', f7:'0',
+          note:'funct3 = 011 selects sltu: the same compare, unsigned.' },
+  xor:  { asm:'xor x3, x1, x2',  t:'R',   op:'0110011', f3:'100', f7:'0',
+          note:'Same main decoder row as every R-type. Only funct3 changes, so only aluctrl changes.' },
+  srl:  { asm:'srl x3, x1, x2',  t:'R',   op:'0110011', f3:'101', f7:'0',
+          note:'funct3 = 101 is shared by srl and sra. funct7b5 = 0 makes alt = 0, so this is srl (0101).' },
+  sra:  { asm:'sra x3, x1, x2',  t:'R',   op:'0110011', f3:'101', f7:'1',
+          note:'funct3 = 101 with funct7b5 = 1 gives alt = 1, so aluctrl = 1101 (sra).' },
+  or:   { asm:'or x3, x1, x2',   t:'R',   op:'0110011', f3:'110', f7:'0',
+          note:'Same main decoder row as every R-type. funct3 = 110 selects or.' },
+  and:  { asm:'and x3, x1, x2',  t:'R',   op:'0110011', f3:'111', f7:'0',
+          note:'Same main decoder row as every R-type. funct3 = 111 selects and.' },
+  addi: { asm:'addi x5, x0, -1', t:'I',   op:'0010011', f3:'000', f7:'1',
+          note:'funct7b5 is 1 here only because -1 has all its immediate bits set, and instr[30] is one of them. op[5] = 0 marks this as I-type, so alt = 0 and aludec still picks add. Without the op[5] check this addi would subtract.' },
+  srai: { asm:'srai x5, x6, 4',  t:'I',   op:'0010011', f3:'101', f7:'1',
+          note:'I-type, but srai keeps a real funct7 field (imm[11:5] = 0100000), so for funct3 = 101 alt = funct7b5 without checking op[5]. With the op[5] check, every srai would run as srli.' },
+  sltiu:{ asm:'sltiu x5, x6, -1', t:'I',  op:'0010011', f3:'011', f7:'1',
+          note:'instr[30] is 1 because the immediate is -1, but funct3 = 011 is neither 000 nor 101, so alt stays 0. If it leaked through, aluctrl would be 1011, which alu.v does not decode.' },
+  lw:   { asm:'lw x6, 8(x2)',    t:'lw',  op:'0000011', f3:'010', f7:'0',
           note:'aluop = 00 forces add to compute base + offset, ignoring funct3. resultsrc = 01 writes the memory data into rd.' },
-  sw:   { asm:'sw x6, 12(x2)',   t:'sw',  op:'0100011', f3:'010', f7:'0', arow:'a00',  ctrl:'000',
+  sw:   { asm:'sw x6, 12(x2)',   t:'sw',  op:'0100011', f3:'010', f7:'0',
           note:'memwrite = 1 goes to dmem in the top level. Nothing is written back, so regwrite = 0 and resultsrc is a don’t care.' },
-  beq:  { asm:'beq x1, x2, loop', t:'beq', op:'1100011', f3:'000', f7:'0', arow:'a01', ctrl:'001',
-          note:'aluop = 01 forces sub, so the ALU’s zero flag is 1 exactly when rs1 == rs2. Toggle zero to see pcsrc follow it.' },
-  jal:  { asm:'jal x1, func',    t:'jal', op:'1101111', f3:'imm', f7:'imm', arow:null, ctrl:'xxx',
-          note:'jump = 1 forces pcsrc = 1 regardless of zero. resultsrc = 10 writes pc + 4 into rd as the return address. The ALU isn’t used, so alusrc, aluop and aluctrl are don’t cares.' }
+  beq:  { asm:'beq x1, x2, loop', t:'br', op:'1100011', f3:'000', f7:'0',
+          note:'All six branches share one opcode and one maindec row: aluop = 01 makes the ALU compute rs1 − rs2. funct3 = 000 picks the test taken = Z. Toggle the flags to see pcsrc follow.' },
+  bne:  { asm:'bne x1, x2, loop', t:'br', op:'1100011', f3:'001', f7:'0',
+          note:'funct3 = 001: taken = !Z, the opposite of beq.' },
+  blt:  { asm:'blt x1, x2, loop', t:'br', op:'1100011', f3:'100', f7:'0',
+          note:'funct3 = 100: taken = N ^ V, the same test slt makes. N alone is wrong when the subtraction overflows, which is what V corrects.' },
+  bge:  { asm:'bge x1, x2, loop', t:'br', op:'1100011', f3:'101', f7:'0',
+          note:'funct3 = 101: taken = !(N ^ V), the opposite of blt.' },
+  bltu: { asm:'bltu x1, x2, loop', t:'br', op:'1100011', f3:'110', f7:'0',
+          note:'funct3 = 110: taken = !C. In subtract mode, no carry out means the subtraction borrowed, so rs1 < rs2 unsigned. Same test as sltu.' },
+  bgeu: { asm:'bgeu x1, x2, loop', t:'br', op:'1100011', f3:'111', f7:'0',
+          note:'funct3 = 111: taken = C, the opposite of bltu.' },
+  jal:  { asm:'jal x1, func',    t:'jal', op:'1101111', f3:'imm', f7:'imm',
+          note:'jump = 1 gives pcsrc = 01 regardless of the flags. resultsrc = 10 writes pc + 4 into rd as the return address. The ALU isn’t used, so alusrca, alusrcb, aluop and aluctrl are don’t cares.' },
+  jalr: { asm:'jalr x0, 0(x1)',  t:'jalr', op:'1100111', f3:'000', f7:'0',
+          note:'jalr = 1 gives pcsrc = 10, so the PC takes the ALU result (rs1 + imm, bit 0 cleared in the datapath). aluop = 00 forces add. rd gets pc + 4 like jal.' },
+  lui:  { asm:'lui x5, 0x12345', t:'lui', op:'0110111', f3:'imm', f7:'imm',
+          note:'alusrca = 10 feeds 0 into the ALU, aluop = 00 forces add, so the result is the U-type immediate itself. immsrc = 100 picks the U-type format.' },
+  auipc:{ asm:'auipc x5, 0x1',   t:'auipc', op:'0010111', f3:'imm', f7:'imm',
+          note:'Same as lui except alusrca = 01 feeds pc into the ALU, so rd gets pc + imm.' }
 };
 
-let cur = 'add', zero = false;
+// Same logic as aludec.v: returns alt, the {alt, funct3} code and aluctrl.
+function aludec(aluop, f3, f7, op5) {
+  const rsub = (f7 === '1' && op5 === '1') ? '1' : '0';
+  const alt = f3 === '000' ? rsub : f3 === '101' ? f7 : '0';
+  const cat = /^[01]{3}$/.test(f3) ? alt + f3 : 'xxxx';
+  const ctrl = aluop === '00' ? '0000' : aluop === '01' ? '1000' : aluop === '10' ? cat : 'xxxx';
+  return { rsub, alt, cat, ctrl };
+}
+const AROW = { '0000':'radd', '1000':'rsub', '0001':'rsll', '0010':'rslt', '0011':'rsltu',
+               '0100':'rxor', '0101':'rsrl', '1101':'rsra', '0110':'ror', '0111':'rand' };
+
+// Branch condition: what controller.v computes as taken.
+function branchTaken(f3, fl) {
+  const lt = fl.negative !== fl.overflow;
+  switch (f3) {
+    case '000': return fl.zero;
+    case '001': return !fl.zero;
+    case '100': return lt;
+    case '101': return !lt;
+    case '110': return !fl.carry;
+    case '111': return fl.carry;
+    default: return false;
+  }
+}
+
+function inner(ins, m, d) {
+  const op5 = ins.op[1], a = m.aluop, sel = a === '10';
+  const on = (id, v) => { const w = $(id); w.classList.toggle('on', v); w.classList.toggle('dc', a === 'xx'); };
+  on('d-aluop', a !== 'xx');
+  on('d-c00', a === '00');
+  on('d-c01', a === '01');
+  on('d-cat', sel); on('d-f3', sel); on('d-f3sel', sel); on('d-alt', sel);
+  on('d-rsub', sel && ins.f3 === '000');
+  on('d-f7and', sel && ins.f3 === '000');
+  on('d-op5', sel && ins.f3 === '000');
+  on('d-f7', sel && ins.f3 === '101');
+  on('d-zero', sel && ins.f3 !== '000' && ins.f3 !== '101');
+  on('d-out', a !== 'xx');
+  $('dv-f3').textContent = ins.f3; $('dv-f7').textContent = ins.f7; $('dv-op5').textContent = op5;
+  $('dv-aluop').textContent = a;
+  $('dv-rsub').textContent = sel ? d.rsub : '–';
+  $('dv-alt').textContent = sel ? d.alt : '–';
+  $('dv-cat').textContent = sel ? d.cat : '–';
+  $('dv-out').textContent = d.ctrl;
+}
+
+let cur = 'add';
+const flags = { zero:false, negative:false, overflow:false, carry:false };
 const $ = id => document.getElementById(id);
 
 function show(name, val, wire) {
@@ -443,26 +716,32 @@ function render() {
   $('v-f3').textContent = ins.f3;
   $('v-f7').textContent = ins.f7;
   show('op5', ins.op[1]);
-  show('zero', zero ? '1' : '0');
+  for (const k in flags) show(k, flags[k] ? '1' : '0');
 
-  ['regwrite','immsrc','alusrc','memwrite','resultsrc','branch','aluop','jump'].forEach(k => show(k, m[k]));
-  show('aluctrl', ins.ctrl);
+  ['regwrite','immsrc','alusrca','alusrcb','memwrite','resultsrc','branch','aluop','jump','jalr'].forEach(k => show(k, m[k]));
+  const d = aludec(m.aluop, ins.f3, ins.f7, ins.op[1]);
+  const arow = m.aluop === '00' ? 'a00' : m.aluop === '01' ? 'a01' : m.aluop === '10' ? AROW[d.ctrl] : null;
+  show('aluctrl', d.ctrl);
+  inner(ins, m, d);
 
-  const andOut = m.branch === '1' && zero;
-  const and = $('w-and');
-  and.classList.toggle('on', andOut);
-  show('pcsrc', (andOut || m.jump === '1') ? '1' : '0');
+  const isBr = m.branch === '1';
+  const taken = isBr && branchTaken(ins.f3, flags);
+  show('taken', isBr ? (taken ? '1' : '0') : 'x');
+  const pcsrc = m.jalr === '1' ? '10' : (m.jump === '1' || taken) ? '01' : '00';
+  show('pcsrc', pcsrc);
 
+  const brow = isBr ? 'b' + ins.f3 : null;
   document.querySelectorAll('tr[data-row]').forEach(r =>
-    r.classList.toggle('hl', r.dataset.row === ins.t || r.dataset.row === ins.arow));
+    r.classList.toggle('hl', r.dataset.row === ins.t || r.dataset.row === arow || r.dataset.row === brow));
 }
 
 document.querySelectorAll('[data-ins]').forEach(b => b.addEventListener('click', () => { cur = b.dataset.ins; render(); }));
-$('zerobtn').addEventListener('click', () => {
-  zero = !zero;
-  $('zerobtn').textContent = 'zero = ' + (zero ? '1' : '0');
-  $('zerobtn').setAttribute('aria-pressed', String(zero));
+document.querySelectorAll('[data-flag]').forEach(b => b.addEventListener('click', () => {
+  const k = b.dataset.flag;
+  flags[k] = !flags[k];
+  b.textContent = b.dataset.short + ' = ' + (flags[k] ? '1' : '0');
+  b.setAttribute('aria-pressed', String(flags[k]));
   render();
-});
+}));
 render();
 </script>
